@@ -1,0 +1,12 @@
+# Ignore Python virtual environments
+.venv/
+venv/
+env/
+
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+
+# Ignore Node (React) dependencies
+node_modules/
+.env
