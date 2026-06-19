@@ -10,3 +10,17 @@ __pycache__/
 # Ignore Node (React) dependencies
 node_modules/
 .env
+
+Delivery Slot ML Model Plan.docx
+
+Updated Delivery Slot Plan.docx
+
+plan1_full.txt
+
+plan1.txt
+
+plan2.txt
+
+read_docx.py
+
+*.csv
