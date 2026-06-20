@@ -1,0 +1,42 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python src/prepare.py
+    deps:
+    - path: data/raw/final_ml_dataset.csv
+      hash: md5
+      md5: fff2571698a5506dd2faee0659489e4b
+      size: 574400
+    - path: src/prepare.py
+      hash: md5
+      md5: b2746c890bb9fc4fe64ce1bf36235cda
+      size: 820
+    outs:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: 3e8bafbed3d4f16e8c7d65bc4bcb5a78
+      size: 114501
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 1c22b2a98e730bdcaf9d33155a889509
+      size: 456675
+  train:
+    cmd: python src/train.py
+    deps:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: 3e8bafbed3d4f16e8c7d65bc4bcb5a78
+      size: 114501
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 1c22b2a98e730bdcaf9d33155a889509
+      size: 456675
+    - path: src/train.py
+      hash: md5
+      md5: 390dfd7ed719121b3c5e22a0440ffa88
+      size: 2167
+    outs:
+    - path: saved_models/xgboost_demand_model.pkl
+      hash: md5
+      md5: b2b80bb5285eb69ea50e00205c3a0033
+      size: 383688
