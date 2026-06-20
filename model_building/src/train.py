@@ -99,7 +99,7 @@ def train_model():
         mlflow.log_artifact(plot_path)
         
         # 6. Save the final model
-        mlflow.xgboost.log_model(final_model, "xgboost-model")
+        mlflow.xgboost.log_model(final_model, "xgboost-model", registered_model_name="Delivery_Slot_XGBoost")
         os.makedirs("saved_models", exist_ok=True)
         with open("saved_models/xgboost_demand_model.pkl", "wb") as f:
             pickle.dump(final_model, f)
