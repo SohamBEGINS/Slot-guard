@@ -1,0 +1,8 @@
+# MLflow Tracking
+mlruns/
+mlflow.db
+
+# DVC and Data
+data/
+saved_models/
+artifacts/

@@ -33,10 +33,10 @@ stages:
       size: 456675
     - path: src/train.py
       hash: md5
-      md5: 390dfd7ed719121b3c5e22a0440ffa88
-      size: 2167
+      md5: b2c4e74ae29a845c43e9824cad34ed5f
+      size: 4224
     outs:
     - path: saved_models/xgboost_demand_model.pkl
       hash: md5
-      md5: b2b80bb5285eb69ea50e00205c3a0033
-      size: 383688
+      md5: 306387c1d9ddb8f8bd7231cf150c6690
+      size: 471451
