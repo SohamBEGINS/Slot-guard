@@ -24,3 +24,12 @@ plan2.txt
 read_docx.py
 
 *.csv
+
+# Ignore ML artifacts
+model_building/mlruns/
+model_building/mlflow.db
+model_building/saved_models/
+model_building/artifacts/
+model_building/data/
+model_building/.dvc/tmp/
+model_building/.dvc/cache/
