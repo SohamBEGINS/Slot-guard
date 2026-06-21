@@ -14,8 +14,9 @@ class Region(Base):
     # MODIFIED: Renamed to represent the target ops goal, not the live limit
     base_fleet_capacity = Column(Integer) 
     
-    # NEW: Admin toggle to pull riders from other zones (Dynamic Rebalancing)
-    current_surge_multiplier = Column(Float, default=1.0) 
+    # NEW: Admin integer adjustment (e.g., +10 to receive riders, -10 if sending riders away)
+    manual_rider_adjustment = Column(Integer, default=0) 
+
 
 # NEW TABLE: Tracks the live physical supply of delivery drivers
 class ActiveRider(Base):
