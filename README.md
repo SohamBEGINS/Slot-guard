@@ -128,3 +128,23 @@ classDiagram
 10. `SlotAvailabilityFacade` returns `False` to the API.
 11. `CheckoutSlotAPI` returns `{"slot": "20:00", "is_available": false}` to the Frontend.
 12. The React Frontend renders the 8:00 PM button as **grayed out and disabled** so the user must pick a different time.
+
+---
+
+## 🖥️ Admin Dashboard UI (Simulation & Monitoring)
+The project includes an Admin Dashboard to visualize the backend ML predictions and provide manual override controls.
+
+### Proposed Components:
+1. **Delivery Collision Forecast (Bar Chart):**
+   * **6-Hour Lookahead:** Displays a rolling 6-hour forecast for a selected zone.
+   * **Demand vs. Capacity:** A bar chart showing predicted demand (Orders/Hr) against a horizontal dotted line representing the zone's `MAX CAPACITY`.
+   * **Visual Alerts:** Bars that breach the capacity line dynamically change color (e.g., Green to Red) to visually highlight a "Collision" status.
+2. **Congested Zone Heatmap:**
+   * A spatial map (or grid) of all delivery zones. Zones currently experiencing or forecasting a collision are highlighted in red (Congested), providing a bird's-eye view of city-wide health.
+3. **Manual Override Controls ("God Mode"):**
+   * **Force Close Toggle:** Instantly overrides the ML model to gray out a specific delivery slot in case of an emergency.
+   * **Dynamic Rebalancing (Surge Riders):** An input to simulate "pulling in" emergency riders from a neighboring zone, artificially boosting live capacity to re-open a grayed-out slot.
+4. **Platform Configuration:**
+   * Controls for admins to define or adjust the fixed time windows (e.g., modifying `08:00 - 09:00` shifts) for different regions.
+5. **Continuous Training (MLOps) Trigger:**
+   * A **"Retrain Model"** action button. In a production MLOps pipeline, this triggers a background script to pull the latest 3-6 months of real transaction data (rolling window) and retrain the XGBoost model. This prevents "model drift" by adapting to new consumer trends, automatically registering the new version in MLflow.
