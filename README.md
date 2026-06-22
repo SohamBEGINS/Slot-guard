@@ -10,8 +10,9 @@ The system powers a **Customer Checkout UI**. When a user attempts to select a d
 ## 🛠️ Tech Stack
 * **Machine Learning:** XGBoost, Scikit-learn, Pandas
 * **MLOps Pipeline:** MLflow (Model Registry & Tracking), DVC (Data Version Control)
-* **Backend API:** FastAPI, Pydantic, Python 3
-* **Database & ORM:** SQLite, SQLAlchemy
+* **Backend** FastAPI, Pydantic, Python 3
+* **Frontend** React , JavaScript
+* **Database & ORM:** PostgreSql , SQLAlchemy
 * **Dependency Management:** `uv`
 
 ---
