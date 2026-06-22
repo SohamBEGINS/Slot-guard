@@ -64,11 +64,13 @@ def train_model():
         
         train_rmse = root_mean_squared_error(y_train, train_preds)
         test_rmse = root_mean_squared_error(y_test, test_preds)
+        train_mae = mean_absolute_error(y_train,train_preds)
         test_mae = mean_absolute_error(y_test, test_preds)
         
         print("-" * 30)
         print(f"Train RMSE: {train_rmse:.2f}")
         print(f"Test RMSE:  {test_rmse:.2f}")
+        print(f"Train MAE:   {train_mae:.2f}")
         print(f"Test MAE:   {test_mae:.2f}")
         print("-" * 30)
         

@@ -3,40 +3,40 @@ stages:
   prepare:
     cmd: python src/prepare.py
     deps:
-    - path: data/raw/final_ml_dataset.csv
+    - path: data/raw/final_ml_dataset2.csv
       hash: md5
-      md5: fff2571698a5506dd2faee0659489e4b
-      size: 574400
+      md5: 7df641b987fc4c3caf362df24e3b5c2f
+      size: 1809235
     - path: src/prepare.py
       hash: md5
-      md5: b2746c890bb9fc4fe64ce1bf36235cda
-      size: 820
+      md5: 1c32a7f8496d7efe2cb284499769e816
+      size: 1909
     outs:
     - path: data/processed/test.csv
       hash: md5
-      md5: 3e8bafbed3d4f16e8c7d65bc4bcb5a78
-      size: 114501
+      md5: fa410d6c65157e6f7506eaae3f5d2677
+      size: 402327
     - path: data/processed/train.csv
       hash: md5
-      md5: 1c22b2a98e730bdcaf9d33155a889509
-      size: 456675
+      md5: d06e5a947e4bcac4712858a6e5e847b8
+      size: 1608173
   train:
     cmd: python src/train.py
     deps:
     - path: data/processed/test.csv
       hash: md5
-      md5: 3e8bafbed3d4f16e8c7d65bc4bcb5a78
-      size: 114501
+      md5: fa410d6c65157e6f7506eaae3f5d2677
+      size: 402327
     - path: data/processed/train.csv
       hash: md5
-      md5: 1c22b2a98e730bdcaf9d33155a889509
-      size: 456675
+      md5: d06e5a947e4bcac4712858a6e5e847b8
+      size: 1608173
     - path: src/train.py
       hash: md5
-      md5: 521a80299a758b99f46383d6886da7ed
-      size: 4271
+      md5: 104abfcf5a83900ba84fbde5cc4a3769
+      size: 4381
     outs:
     - path: saved_models/xgboost_demand_model.pkl
       hash: md5
-      md5: 306387c1d9ddb8f8bd7231cf150c6690
-      size: 471451
+      md5: 29b372819021d6f98e6a61f0c2425c9e
+      size: 561553

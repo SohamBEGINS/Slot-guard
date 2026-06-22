@@ -3,7 +3,7 @@ stages:
     cmd: python src/prepare.py
     deps:
       - src/prepare.py
-      - data/raw/final_ml_dataset.csv
+      - data/raw/final_ml_dataset2.csv
     outs:
       - data/processed/train.csv
       - data/processed/test.csv
