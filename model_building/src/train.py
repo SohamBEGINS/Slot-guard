@@ -7,6 +7,8 @@ import mlflow.xgboost
 import matplotlib.pyplot as plt
 import os
 import pickle
+from dotenv import load_dotenv
+load_dotenv()
 
 def train_model():
     print("Loading processed data...")
@@ -20,7 +22,7 @@ def train_model():
     y_test = test_df['Total_Demand']
     
     # MLflow Setup
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
     mlflow.set_experiment("Delivery_Slot_Prediction")
     
     with mlflow.start_run():
