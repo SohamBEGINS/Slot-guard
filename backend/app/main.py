@@ -8,6 +8,9 @@ from app.db.models import Base
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from dotenv import load_dotenv
+    load_dotenv()
+
     # 1. Generate the PostgreSQL Tables in Supabase automatically!
     print("Creating Database Tables in Supabase...")
     Base.metadata.create_all(bind=engine)
@@ -16,9 +19,8 @@ async def lifespan(app: FastAPI):
     print("Initializing ML Manager...")
     ml_manager = MLManager()
     
-    # NOTE: You must ensure your local MLflow server is running in another terminal 
-    # (uv run mlflow ui) so it can download the model!
-    # ml_manager.load_model("models:/Delivery_Slot_XGBoost@production")
+    # Load the XGBoost model from MLflow (DagsHub) using the @champion alias
+    ml_manager.load_model("models:/Delivery_Slot_XGBoost@champion")
     
     yield
     print("Shutting down gracefully...")

@@ -24,10 +24,36 @@ export default function SetupPage() {
         fleetSize: 200,
         initialOrders: 200,
     });
+    const [isLaunching, setIsLaunching] = useState(false);
 
-    const handleLaunch = () => {
-        navigate('/admin', { state: simulationParams });
+
+    const handleLaunch = async () => {
+        setIsLaunching(true);
+        try {
+            const payload = {
+                target_time: new Date(simulationParams.dateTime).toISOString(),
+                weather: simulationParams.weather,
+                traffic: simulationParams.traffic,
+                is_festival: simulationParams.isFestival,
+                fleet_size: simulationParams.fleetSize,
+                initial_orders: simulationParams.initialOrders,
+            };
+            const response = await fetch('http://localhost:8000/api/v1/simulation/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) throw new Error('Initialization failed');
+            const data = await response.json();
+            navigate('/admin', { state: { ...simulationParams, initResult: data } });
+        } catch (err) {
+            console.error(err);
+            alert('Failed to initialize simulation. Is the backend running?');
+        } finally {
+            setIsLaunching(false);
+        }
     };
+
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background p-6 relative overflow-hidden">
@@ -192,13 +218,11 @@ export default function SetupPage() {
                 </CardContent>
 
                 <CardFooter className="px-8 pt-2 pb-8">
-                    <Button
-                        onClick={handleLaunch}
-                        className="w-full h-14 text-lg font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform bg-primary hover:bg-primary/90 text-primary-foreground"
-                    >
-                        INITIALIZE SIMULATION
-                        <Rocket className="w-5 h-5 ml-2" />
+                    <Button onClick={handleLaunch} disabled={isLaunching} className="w-full h-14 text-lg font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform bg-primary hover:bg-primary/90 text-primary-foreground">
+                        {isLaunching ? 'INITIALIZING...' : 'INITIALIZE SIMULATION'}
+                        <Rocket className={`w-5 h-5 ml-2 ${isLaunching ? 'animate-spin' : ''}`} />
                     </Button>
+
                 </CardFooter>
             </Card>
         </div>
