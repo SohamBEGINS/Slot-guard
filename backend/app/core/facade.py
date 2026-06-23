@@ -26,6 +26,16 @@ class SlotAvailabilityFacade:
         }
         return mapping.get(weather, 1.0)
 
+    def _map_traffic_to_ml_float(self, traffic: str) -> float:
+        mapping = {
+            "LOW": 1.0,
+            "MEDIUM": 1.2,
+            "HIGH": 1.5,
+            "GRIDLOCK": 2.0
+        }
+        return mapping.get(traffic, 1.0)
+
+
     async def evaluate_slot(self, request: CheckoutSlotRequest) -> CheckoutSlotResponse:
         # 1. Fetch Real-World Data from Repositories
         active_riders = self.rider_repo.get_active_riders(request.zone_id)
@@ -46,7 +56,7 @@ class SlotAvailabilityFacade:
             "Is_Weekend": is_weekend,
             "Is_Festival": 1 if request.is_festival else 0,
             "Weather_Severity": self._map_weather_to_ml_float(request.weather),
-            "Traffic_Encoded": 1.2, # Defaulting to Medium Traffic for the simulation
+            "Traffic_Encoded": self._map_traffic_to_ml_float(request.traffic),
             "Current_Load": current_load
         }
         

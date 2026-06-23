@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-
+from app.api.simulation import router as simulation_router
 from app.api.routes import router as checkout_router
 from app.core.ml_manager import MLManager
 from app.db.database import engine
@@ -32,6 +32,7 @@ app = FastAPI(
 
 # Attach our routes
 app.include_router(checkout_router, prefix="/api/v1/checkout", tags=["Checkout"])
+app.include_router(simulation_router, prefix="/api/v1/simulation", tags=["Simulation"])
 
 @app.get("/")
 def health_check():
