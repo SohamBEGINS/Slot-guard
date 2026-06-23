@@ -1,20 +1,15 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import SetupPage from './pages/SetupPage';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/setup" replace />} />
-
-        {/* The beautiful setup page we just built */}
-        <Route path="/setup" element={<SetupPage />} />
-
-        {/* Placeholder routes (We build these next!) */}
-        <Route path="/admin" element={<div className="p-10 text-2xl font-bold text-center mt-20">Admin Dashboard Loading...</div>} />
-        <Route path="/checkout" element={<div className="p-10 text-2xl font-bold text-center mt-20">Checkout Loading...</div>} />
+        <Route path="/" element={<SetupPage />} />
+        <Route path="/admin" element={<AdminDashboard />} /> {/* ADD THIS */}
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 

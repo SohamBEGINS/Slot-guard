@@ -1,12 +1,17 @@
 import uuid
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
+import numpy as np
+import asyncio
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import ActiveRider, SlotDemand, Region, Order
 from app.schemas.requests import SimulationInitRequest
+from app.core.ml_manager import MLManager
+from app.core.facade import SlotAvailabilityFacade
+from app.core.strategy import StandardDayStrategy, SevereWeatherStrategy
 
 router = APIRouter()
 
@@ -114,3 +119,82 @@ def get_zone_status(db: Session = Depends(get_db)):
         })
 
     return result
+
+@router.get("/demand-forecast")
+async def get_demand_forecast(
+    target_time: datetime,
+    weather: str,
+    traffic: str,
+    is_festival: bool,
+    db: Session = Depends(get_db)
+):
+    """
+    Runs the XGBoost model 48 times (8 zones x 6 hours) to generate the Admin Dashboard Chart.
+    """
+    facade = SlotAvailabilityFacade(db)
+    
+    # Decide Strategy based on UI Weather
+    if weather in ["RAIN", "STORM"]:
+        strategy = SevereWeatherStrategy()
+    else:
+        strategy = StandardDayStrategy()
+        
+    ml_manager = MLManager()
+
+    forecast_results = []
+
+    for zone_id in ZONES:
+        # 1. Fetch current active riders for capacity
+        riders_count = db.query(ActiveRider).filter_by(current_zone_id=zone_id, status="ONLINE").count()
+        max_capacity = strategy.calculate_capacity(riders_count)
+
+        zone_data = {
+            "zone_id": zone_id,
+            "zone_name": f"Zone {zone_id}",
+            "capacity": max_capacity,
+            "hours": []
+        }
+
+        # 2. Loop through the next 6 hours and predict
+        for i in range(6):
+            future_time = target_time + timedelta(hours=i)
+            target_hour = future_time.hour
+            is_weekend = 1 if future_time.weekday() >= 5 else 0
+            
+            # Estimate current load based on what was seeded
+            current_load = db.query(Order).filter_by(zone_id=zone_id).count()
+
+            from app.core.strategy import WeatherCondition
+            # Prepare Features for XGBoost
+            ml_features = {
+                "zone_id": zone_id,
+                "Hour_Sin": np.sin(2 * np.pi * target_hour / 24),
+                "Hour_Cos": np.cos(2 * np.pi * target_hour / 24),
+                "Is_Weekend": is_weekend,
+                "Is_Festival": 1 if is_festival else 0,
+                "Weather_Severity": facade._map_weather_to_ml_float(WeatherCondition(weather)),
+                "Traffic_Encoded": facade._map_traffic_to_ml_float(traffic),
+                "Current_Load": current_load
+            }
+
+            # Await the XGBoost Threadpool
+            predicted_demand = await ml_manager.predict_async(ml_features)
+            predicted_demand = int(predicted_demand)
+            
+            # UI Business Logic
+            status = "SAFE"
+            if predicted_demand > max_capacity:
+                status = "LOCKED"
+            elif predicted_demand > (max_capacity * 0.8):
+                status = "RISK"
+
+            zone_data["hours"].append({
+                "hour": target_hour,
+                "slot": f"{target_hour}:00",
+                "predicted_demand": predicted_demand,
+                "status": status
+            })
+
+        forecast_results.append(zone_data)
+
+    return {"forecast": forecast_results}

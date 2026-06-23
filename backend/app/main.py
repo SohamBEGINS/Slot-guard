@@ -25,11 +25,22 @@ async def lifespan(app: FastAPI):
     yield
     print("Shutting down gracefully...")
 
+from fastapi.middleware.cors import CORSMiddleware
+
 # Initialize the FastAPI application
 app = FastAPI(
     title="Delivery Slot Prediction System",
     description="Backend for Dynamic Rebalancing and Slot Management",
     lifespan=lifespan
+)
+
+# Add CORS Middleware to allow requests from the React frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Attach our routes
