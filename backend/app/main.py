@@ -5,6 +5,8 @@ from app.api.routes import router as checkout_router
 from app.core.ml_manager import MLManager
 from app.db.database import engine
 from app.db.models import Base
+from dotenv import load_dotenv
+load_dotenv()                     # Must be first — loads .env before MLManager reads env vars
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,11 +17,7 @@ async def lifespan(app: FastAPI):
     # 2. Boot up the XGBoost Singleton
     print("Initializing ML Manager...")
     ml_manager = MLManager()
-    
-    # NOTE: You must ensure your local MLflow server is running in another terminal 
-    # (uv run mlflow ui) so it can download the model!
-    # ml_manager.load_model("models:/Delivery_Slot_XGBoost@production")
-    
+    ml_manager.load_model("models:/Delivery_Slot_XGBoost@champion")
     yield
     print("Shutting down gracefully...")
 

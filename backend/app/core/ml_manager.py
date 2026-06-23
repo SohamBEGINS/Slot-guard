@@ -1,4 +1,5 @@
 import mlflow
+import os
 import pandas as pd
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -25,8 +26,7 @@ class MLManager:
         if not self._is_loaded:
             print(f"Loading XGBoost model from MLflow: {model_uri}")
             
-            # Note: We will configure this URI properly in a .env file later
-            mlflow.set_tracking_uri("http://localhost:5000") 
+            mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
             
             self.model = mlflow.pyfunc.load_model(model_uri)
             self._is_loaded = True
