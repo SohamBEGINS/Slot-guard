@@ -3,7 +3,8 @@ import random
 from datetime import datetime, timedelta
 import numpy as np
 import asyncio
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -220,3 +221,22 @@ async def get_demand_forecast(
         forecast_results.append(zone_data)
 
     return {"forecast": forecast_results}
+
+class RebalanceRequest(BaseModel):
+    source_zone: int
+    target_zone: int
+    rider_count: int
+
+@router.post("/rebalance-riders")
+def rebalance_riders(req: RebalanceRequest, db: Session = Depends(get_db)):
+    """Moves active riders from one zone to another to alleviate congestion"""
+    riders = db.query(ActiveRider).filter_by(current_zone_id=req.source_zone, status="ONLINE").limit(req.rider_count).all()
+    
+    if len(riders) < req.rider_count:
+        raise HTTPException(status_code=400, detail="Not enough riders in source zone")
+        
+    for rider in riders:
+        rider.current_zone_id = req.target_zone
+        
+    db.commit()
+    return {"message": f"Successfully rebalanced {req.rider_count} riders"}

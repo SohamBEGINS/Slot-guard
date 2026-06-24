@@ -11,13 +11,13 @@ function App() {
       <Routes>
         {/* Public Pages */}
         <Route path="/" element={<SetupPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
 
         {/* Admin Dashboard (sidebar layout wraps all admin pages) */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="/admin/zones" replace />} />
           <Route path="zones" element={<ZoneIntelligence />} />
           <Route path="map" element={<UrbanMap />} />
+          <Route path="checkout" element={<CheckoutPage />} />
         </Route>
       </Routes>
     </Router>
