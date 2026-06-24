@@ -152,17 +152,38 @@ async def get_demand_forecast(
             "zone_id": zone_id,
             "zone_name": f"Zone {zone_id}",
             "capacity": max_capacity,
+            "active_riders": riders_count,
             "hours": []
         }
 
-        # 2. Loop through the next 6 hours and predict
-        for i in range(6):
+        # 2. Loop through the next 4 hours and predict
+        # 4 hours is the sweet spot: meaningful trend without cramping the dashboard.
+        for i in range(4):
             future_time = target_time + timedelta(hours=i)
             target_hour = future_time.hour
             is_weekend = 1 if future_time.weekday() >= 5 else 0
             
-            # Estimate current load based on what was seeded
-            current_load = db.query(Order).filter_by(zone_id=zone_id).count()
+            # --- Context-Aware Slot Booking Decay Model ---
+            # The decay_rate controls how steeply future slots empty out.
+            # Normal weekday: steep decay (people want the immediate slot).
+            # Festival: very slow decay (every slot fills up — people plan ahead aggressively).
+            # Gridlock / Storm: moderate-slow decay (people hedge by booking later slots).
+            # Weekend: slightly flatter than weekday (more planned grocery runs).
+            base_load = db.query(Order).filter_by(zone_id=zone_id).count()
+
+            decay_rate = 0.70  # Default: Normal weekday — steep drop-off
+
+            if is_festival:
+                decay_rate = 0.93   # Festival: nearly flat — all slots fill up
+            elif traffic == "GRIDLOCK":
+                decay_rate = max(decay_rate, 0.85)  # Gridlock: people book ahead to hedge
+            elif weather in ["RAIN", "STORM"]:
+                decay_rate = max(decay_rate, 0.82)  # Bad weather: moderate advance booking
+            elif is_weekend == 1:
+                decay_rate = max(decay_rate, 0.78)  # Weekend: slight forward planning
+
+            decay_factor = decay_rate ** i
+            current_load = int(base_load * decay_factor)
 
             from app.core.strategy import WeatherCondition
             # Prepare Features for XGBoost
@@ -190,8 +211,9 @@ async def get_demand_forecast(
 
             zone_data["hours"].append({
                 "hour": target_hour,
-                "slot": f"{target_hour}:00",
+                "slot": f"{target_hour}:00 - {target_hour + 1}:00",
                 "predicted_demand": predicted_demand,
+                "current_load": current_load,
                 "status": status
             })
 

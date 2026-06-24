@@ -10,7 +10,7 @@ import { Rocket, CloudRain, Calendar, PartyPopper, Car, Users, ShoppingBag } fro
 export default function SetupPage() {
     const navigate = useNavigate();
 
-    // Default datetime to tomorrow at 12:00 PM
+    // Default datetime: tomorrow at 12:00 PM
     const defaultDate = new Date();
     defaultDate.setDate(defaultDate.getDate() + 1);
     defaultDate.setHours(12, 0, 0, 0);
@@ -25,7 +25,6 @@ export default function SetupPage() {
         initialOrders: 200,
     });
     const [isLaunching, setIsLaunching] = useState(false);
-
 
     const handleLaunch = async () => {
         setIsLaunching(true);
@@ -44,8 +43,9 @@ export default function SetupPage() {
                 body: JSON.stringify(payload),
             });
             if (!response.ok) throw new Error('Initialization failed');
-            const data = await response.json();
-            navigate('/admin', { state: { ...simulationParams, initResult: data } });
+            // Persist params in sessionStorage so all admin pages can read them
+            sessionStorage.setItem('simulationParams', JSON.stringify(simulationParams));
+            navigate('/admin/zones');
         } catch (err) {
             console.error(err);
             alert('Failed to initialize simulation. Is the backend running?');
@@ -54,11 +54,10 @@ export default function SetupPage() {
         }
     };
 
-
     return (
         <div className="min-h-screen flex items-center justify-center bg-background p-6 relative overflow-hidden">
-            {/* Background glowing effect */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background z-0"></div>
+            {/* Background glow */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background z-0" />
 
             <Card className="w-full max-w-3xl z-10 border-primary/20 shadow-2xl shadow-primary/10 bg-card/80 backdrop-blur-sm">
                 <CardHeader className="text-center space-y-2 pb-6">
@@ -72,7 +71,6 @@ export default function SetupPage() {
                 </CardHeader>
 
                 <CardContent className="px-8 pb-6">
-                    {/* Two-column grid with a dividing line */}
                     <div className="grid grid-cols-2 gap-0">
 
                         {/* ── LEFT COLUMN ── */}
@@ -218,11 +216,14 @@ export default function SetupPage() {
                 </CardContent>
 
                 <CardFooter className="px-8 pt-2 pb-8">
-                    <Button onClick={handleLaunch} disabled={isLaunching} className="w-full h-14 text-lg font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform bg-primary hover:bg-primary/90 text-primary-foreground">
+                    <Button
+                        onClick={handleLaunch}
+                        disabled={isLaunching}
+                        className="w-full h-14 text-lg font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
                         {isLaunching ? 'INITIALIZING...' : 'INITIALIZE SIMULATION'}
                         <Rocket className={`w-5 h-5 ml-2 ${isLaunching ? 'animate-spin' : ''}`} />
                     </Button>
-
                 </CardFooter>
             </Card>
         </div>
