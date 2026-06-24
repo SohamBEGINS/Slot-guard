@@ -7,7 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Rocket,
-  Settings
+  Settings,
+  BrainCircuit
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -21,6 +22,16 @@ const NAV_ITEMS = [
     to: '/admin/map',
     icon: Map,
     label: 'Urban Activity Map',
+  },
+  {
+    to: '/admin/mlops',
+    icon: BrainCircuit,
+    label: 'MLOps Health',
+  },
+  {
+    to: '/',
+    icon: Rocket,
+    label: 'Mission Setup',
   },
 ];
 
@@ -66,9 +77,8 @@ export default function AdminLayout() {
       <aside
         onMouseEnter={() => setCollapsed(false)}
         onMouseLeave={() => setCollapsed(true)}
-        className={`fixed top-0 left-0 h-full flex flex-col border-r border-border/40 bg-[#15191c]/95 backdrop-blur-xl z-50 transition-[width] duration-300 ease-in-out shadow-2xl overflow-hidden ${
-          collapsed ? 'w-16' : 'w-64'
-        }`}
+        className={`fixed top-0 left-0 h-full flex flex-col border-r border-border/40 bg-[#15191c]/95 backdrop-blur-xl z-50 transition-[width] duration-300 ease-in-out shadow-2xl overflow-hidden ${collapsed ? 'w-16' : 'w-64'
+          }`}
       >
         {/* Brand */}
         <div className="flex items-center px-5 py-5 border-b border-border/30 w-64 h-[65px]">
@@ -85,10 +95,9 @@ export default function AdminLayout() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center rounded-xl px-3 py-3 text-sm font-bold transition-all ${
-                  isActive
-                    ? 'bg-primary/15 text-primary'
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                `flex items-center rounded-xl px-3 py-3 text-sm font-bold transition-all ${isActive
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                 }`
               }
             >
@@ -109,7 +118,7 @@ export default function AdminLayout() {
           >
             <Settings className="w-5 h-5 shrink-0" />
             <span className={`ml-4 truncate transition-opacity duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>
-                Mission Setup
+              Mission Setup
             </span>
           </button>
 
@@ -120,7 +129,7 @@ export default function AdminLayout() {
           >
             <ShoppingCart className="w-5 h-5 shrink-0" />
             <span className={`ml-4 truncate transition-opacity duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>
-                Preview Checkout
+              Preview Checkout
             </span>
           </button>
         </nav>

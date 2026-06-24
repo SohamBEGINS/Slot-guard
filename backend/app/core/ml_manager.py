@@ -26,9 +26,15 @@ class MLManager:
             print(f"Loading XGBoost model from MLflow: {model_uri}")
             
             import os
+            import warnings
+            
+            # Suppress MLflow dependency warnings
+            os.environ["MLFLOW_DISABLE_ENV_CREATION"] = "1"
+            warnings.filterwarnings("ignore", module="mlflow")
+            
             mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")) 
             
-            self.model = mlflow.pyfunc.load_model(model_uri)
+            self.model = mlflow.pyfunc.load_model(model_uri, suppress_warnings=True)
             self._is_loaded = True
             print("Model successfully loaded into server RAM!")
 

@@ -240,3 +240,38 @@ def rebalance_riders(req: RebalanceRequest, db: Session = Depends(get_db)):
         
     db.commit()
     return {"message": f"Successfully rebalanced {req.rider_count} riders"}
+
+class IncentiveRequest(BaseModel):
+    zone_id: int
+    riders_to_add: int = 15
+
+@router.post("/incentive")
+def apply_rider_incentive(req: IncentiveRequest, db: Session = Depends(get_db)):
+    """Simulates a Rider Bonus by permanently adding new active riders to the zone."""
+    for _ in range(req.riders_to_add):
+        db.add(ActiveRider(
+            rider_id=str(uuid.uuid4()),
+            current_zone_id=req.zone_id,
+            status="ONLINE",
+            last_ping=datetime.utcnow()
+        ))
+    db.commit()
+    return {"message": f"Successfully onboarded {req.riders_to_add} riders to Zone {req.zone_id}"}
+
+class SurgeRequest(BaseModel):
+    zone_id: int
+    drop_percentage: float = 0.15
+
+@router.post("/surge-pricing")
+def apply_surge_pricing(req: SurgeRequest, db: Session = Depends(get_db)):
+    """Simulates Demand Suppression by dropping a percentage of pending orders."""
+    orders = db.query(Order).filter_by(zone_id=req.zone_id, status="Pending").all()
+    drop_count = int(len(orders) * req.drop_percentage)
+    
+    if drop_count > 0:
+        orders_to_drop = random.sample(orders, drop_count)
+        for o in orders_to_drop:
+            db.delete(o)
+        db.commit()
+        
+    return {"message": f"Dropped {drop_count} orders due to Surge Pricing in Zone {req.zone_id}"}

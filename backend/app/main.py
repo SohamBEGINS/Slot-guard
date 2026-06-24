@@ -2,9 +2,11 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.api.simulation import router as simulation_router
 from app.api.routes import router as checkout_router
+from app.api.mlops import router as mlops_router
 from app.core.ml_manager import MLManager
 from app.db.database import engine
 from app.db.models import Base
+from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,8 +27,6 @@ async def lifespan(app: FastAPI):
     yield
     print("Shutting down gracefully...")
 
-from fastapi.middleware.cors import CORSMiddleware
-
 # Initialize the FastAPI application
 app = FastAPI(
     title="Delivery Slot Prediction System",
@@ -46,6 +46,7 @@ app.add_middleware(
 # Attach our routes
 app.include_router(checkout_router, prefix="/api/v1/checkout", tags=["Checkout"])
 app.include_router(simulation_router, prefix="/api/v1/simulation", tags=["Simulation"])
+app.include_router(mlops_router, prefix="/api/v1/mlops", tags=["mlops"])
 
 @app.get("/")
 def health_check():

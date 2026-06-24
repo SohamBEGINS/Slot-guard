@@ -4,6 +4,7 @@ import AdminLayout from './components/AdminLayout';
 import ZoneIntelligence from './pages/ZoneIntelligence';
 import UrbanMap from './pages/UrbanMap';
 import CheckoutPage from './pages/CheckoutPage';
+import MLOpsDashboard from './pages/MLOpsDashboard';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="zones" element={<ZoneIntelligence />} />
           <Route path="map" element={<UrbanMap />} />
           <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="mlops" element={<MLOpsDashboard />} />
         </Route>
       </Routes>
     </Router>

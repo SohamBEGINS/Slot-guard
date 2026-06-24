@@ -28,7 +28,7 @@ export default function CheckoutPage() {
     const getSlotStatus = (predictedDemand, capacity) => {
         const ratio = predictedDemand / capacity;
         if (ratio > 1.0) return { label: 'Unavailable', price: null, class: 'opacity-50 cursor-not-allowed grayscale bg-card', border: 'border-border', icon: ShieldAlert, textClass: 'text-red-500' };
-        if (ratio >= 0.85) return { label: 'Fast Filling', price: '+$3.99', class: 'hover:border-yellow-500/50 hover:bg-yellow-500/5 cursor-pointer bg-card', border: 'border-yellow-500/30', icon: Zap, textClass: 'text-yellow-500' };
+        if (ratio > 0.80) return { label: 'Fast Filling', price: '+$3.99', class: 'hover:border-yellow-500/50 hover:bg-yellow-500/5 cursor-pointer bg-card', border: 'border-yellow-500/30', icon: Zap, textClass: 'text-yellow-500' };
         return { label: 'Available', price: 'Free', class: 'hover:border-green-500/50 hover:bg-green-500/5 cursor-pointer bg-card', border: 'border-green-500/30', icon: Clock, textClass: 'text-green-500' };
     };
 

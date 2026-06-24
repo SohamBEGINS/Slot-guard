@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Loader2, AlertTriangle, ShieldCheck, Lock, Users, Package, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function ZoneIntelligence() {
     const navigate = useNavigate();
@@ -18,45 +19,45 @@ export default function ZoneIntelligence() {
     const [activeZoneId, setActiveZoneId] = useState("1"); 
     const [overrides, setOverrides] = useState({}); // { "zoneId-slot": isOpen (boolean) }
 
+    const fetchForecast = async (force = false) => {
+        const cachedParams = sessionStorage.getItem('cachedParams');
+        const cachedData = sessionStorage.getItem('cachedForecast');
+        const currentParamsStr = JSON.stringify(simulationParams);
+
+        if (!force && cachedParams === currentParamsStr && cachedData) {
+            setForecastData(JSON.parse(cachedData));
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const queryParams = new URLSearchParams({
+                target_time: simulationParams.dateTime,
+                weather: simulationParams.weather,
+                traffic: simulationParams.traffic,
+                is_festival: simulationParams.isFestival
+            });
+            const res = await fetch(`http://localhost:8000/api/v1/simulation/demand-forecast?${queryParams}`);
+            const data = await res.json();
+            
+            setForecastData(data.forecast);
+            
+            sessionStorage.setItem('cachedParams', currentParamsStr);
+            sessionStorage.setItem('cachedForecast', JSON.stringify(data.forecast));
+            
+        } catch (err) {
+            console.error("Failed to fetch forecast:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!simulationParams.dateTime) {
             navigate('/');
             return;
         }
-
-        const fetchForecast = async () => {
-            const cachedParams = sessionStorage.getItem('cachedParams');
-            const cachedData = sessionStorage.getItem('cachedForecast');
-            
-            const currentParamsStr = JSON.stringify(simulationParams);
-
-            if (cachedParams === currentParamsStr && cachedData) {
-                setForecastData(JSON.parse(cachedData));
-                setLoading(false);
-                return;
-            }
-
-            try {
-                const queryParams = new URLSearchParams({
-                    target_time: simulationParams.dateTime,
-                    weather: simulationParams.weather,
-                    traffic: simulationParams.traffic,
-                    is_festival: simulationParams.isFestival
-                });
-                const res = await fetch(`http://localhost:8000/api/v1/simulation/demand-forecast?${queryParams}`);
-                const data = await res.json();
-                
-                setForecastData(data.forecast);
-                
-                sessionStorage.setItem('cachedParams', currentParamsStr);
-                sessionStorage.setItem('cachedForecast', JSON.stringify(data.forecast));
-                
-            } catch (err) {
-                console.error("Failed to fetch forecast:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
 
         fetchForecast();
     }, []);
@@ -86,7 +87,7 @@ export default function ZoneIntelligence() {
     };
 
 
-    if (loading || forecastData.length === 0) {
+    if (loading || !forecastData || forecastData.length === 0) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center min-h-screen gap-4 text-primary">
                 <Loader2 className="w-12 h-12 animate-spin" />
@@ -109,6 +110,7 @@ export default function ZoneIntelligence() {
 
     return (
         <div className="p-6 flex flex-col min-h-[calc(100vh-2rem)]">
+            
             {/* HEADER & SCENARIO STRIP */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/40 shrink-0">
                 <div>
@@ -231,6 +233,45 @@ export default function ZoneIntelligence() {
                             <div>
                                 <CardTitle className="text-xs tracking-widest text-muted-foreground uppercase font-black">Slot Configuration Manager</CardTitle>
                                 <p className="text-xs text-primary mt-1 font-semibold">ZONE: {activeZone.zone_name.toUpperCase()}</p>
+                            </div>
+                            <div className="flex gap-3">
+                                <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="border-yellow-500/50 hover:bg-yellow-500/10 text-yellow-500 font-bold"
+                                    onClick={async () => {
+                                        try {
+                                            await fetch(`http://localhost:8000/api/v1/simulation/surge-pricing`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ zone_id: activeZone.zone_id, drop_percentage: 0.15 })
+                                            });
+                                            await fetchForecast(true);
+                                        } catch (err) { console.error(err); }
+                                    }}
+                                >
+                                    <TrendingUp className="w-4 h-4 mr-2" />
+                                    Enable Surge (+$3.99)
+                                </Button>
+                                
+                                <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="border-green-500/50 hover:bg-green-500/10 text-green-500 font-bold"
+                                    onClick={async () => {
+                                        try {
+                                            await fetch(`http://localhost:8000/api/v1/simulation/incentive`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ zone_id: activeZone.zone_id, riders_to_add: 15 })
+                                            });
+                                            await fetchForecast(true);
+                                        } catch (err) { console.error(err); }
+                                    }}
+                                >
+                                    <Users className="w-4 h-4 mr-2" />
+                                    Rider Bonus (+₹25)
+                                </Button>
                             </div>
                         </div>
                     </CardHeader>
