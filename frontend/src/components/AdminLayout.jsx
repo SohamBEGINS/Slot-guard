@@ -23,16 +23,6 @@ const NAV_ITEMS = [
     icon: Map,
     label: 'Urban Activity Map',
   },
-  {
-    to: '/admin/mlops',
-    icon: BrainCircuit,
-    label: 'MLOps Health',
-  },
-  {
-    to: '/',
-    icon: Rocket,
-    label: 'Mission Setup',
-  },
 ];
 
 export default function AdminLayout() {

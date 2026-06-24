@@ -187,16 +187,16 @@ async def get_demand_forecast(
             current_load = int(base_load * decay_factor)
 
             from app.core.strategy import WeatherCondition
-            # Prepare Features for XGBoost
+            # Prepare Features for XGBoost (Matching the new Pipeline schema EXACTLY in order!)
             ml_features = {
                 "zone_id": zone_id,
-                "Hour_Sin": np.sin(2 * np.pi * target_hour / 24),
-                "Hour_Cos": np.cos(2 * np.pi * target_hour / 24),
+                "Weather": facade._map_weather_to_ml_float(WeatherCondition(weather)),
+                "Traffic": facade._map_traffic_to_ml_float(traffic),
                 "Is_Weekend": is_weekend,
                 "Is_Festival": 1 if is_festival else 0,
-                "Weather_Severity": facade._map_weather_to_ml_float(WeatherCondition(weather)),
-                "Traffic_Encoded": facade._map_traffic_to_ml_float(traffic),
-                "Current_Load": current_load
+                "Current_Load": current_load,
+                "Hour_Sin": np.sin(2 * np.pi * target_hour / 24),
+                "Hour_Cos": np.cos(2 * np.pi * target_hour / 24)
             }
 
             # Await the XGBoost Threadpool

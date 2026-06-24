@@ -18,9 +18,9 @@ class MLManager:
             cls._instance.thread_pool = ThreadPoolExecutor(max_workers=4)
         return cls._instance
 
-    def load_model(self, model_uri: str = "models:/Delivery_Slot_XGBoost@production"):
+    def load_model(self, model_uri: str = "models:/Delivery_Slot_Model@champion"):
         """
-        Loads the model directly from the MLflow registry using the @production alias!
+        Loads the model directly from the MLflow registry using the @champion alias!
         """
         if not self._is_loaded:
             print(f"Loading XGBoost model from MLflow: {model_uri}")
@@ -32,7 +32,7 @@ class MLManager:
             os.environ["MLFLOW_DISABLE_ENV_CREATION"] = "1"
             warnings.filterwarnings("ignore", module="mlflow")
             
-            mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")) 
+            mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "https://dagshub.com/SohamBEGINS/Slot-guard.mlflow").strip())
             
             self.model = mlflow.pyfunc.load_model(model_uri, suppress_warnings=True)
             self._is_loaded = True

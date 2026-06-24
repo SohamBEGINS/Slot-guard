@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.api.simulation import router as simulation_router
 from app.api.routes import router as checkout_router
-from app.api.mlops import router as mlops_router
 from app.core.ml_manager import MLManager
 from app.db.database import engine
 from app.db.models import Base
@@ -22,7 +21,7 @@ async def lifespan(app: FastAPI):
     ml_manager = MLManager()
     
     # Load the XGBoost model from MLflow (DagsHub) using the @champion alias
-    ml_manager.load_model("models:/Delivery_Slot_XGBoost@champion")
+    ml_manager.load_model("models:/Delivery_Slot_Model@champion")
     
     yield
     print("Shutting down gracefully...")
@@ -46,7 +45,6 @@ app.add_middleware(
 # Attach our routes
 app.include_router(checkout_router, prefix="/api/v1/checkout", tags=["Checkout"])
 app.include_router(simulation_router, prefix="/api/v1/simulation", tags=["Simulation"])
-app.include_router(mlops_router, prefix="/api/v1/mlops", tags=["mlops"])
 
 @app.get("/")
 def health_check():
