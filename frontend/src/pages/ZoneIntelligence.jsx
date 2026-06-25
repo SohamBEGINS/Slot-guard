@@ -93,7 +93,8 @@ export default function ZoneIntelligence() {
             traffic: simulationParams.traffic,
             is_festival: simulationParams.isFestival
         });
-        const res = await fetch(`http://localhost:8000/api/v1/simulation/demand-forecast?${queryParams}`);
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const res = await fetch(`${API_BASE_URL}/api/v1/simulation/demand-forecast?${queryParams}`);
         const data = await res.json();
         setForecastData(data.forecast);
         sessionStorage.setItem('cachedParams', JSON.stringify(simulationParams));
@@ -301,7 +302,8 @@ export default function ZoneIntelligence() {
                                     className="border-yellow-500/50 hover:bg-yellow-500/10 text-yellow-500 font-bold"
                                     onClick={async () => {
                                         const apiCall = async () => {
-                                            await fetch(`http://localhost:8000/api/v1/simulation/surge-pricing`, {
+                                            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                                            await fetch(`${API_BASE_URL}/api/v1/simulation/surge-pricing`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ zone_id: activeZone.zone_id, drop_percentage: 0.15 })
@@ -321,7 +323,8 @@ export default function ZoneIntelligence() {
                                     className="border-green-500/50 hover:bg-green-500/10 text-green-500 font-bold"
                                     onClick={async () => {
                                         const apiCall = async () => {
-                                            await fetch(`http://localhost:8000/api/v1/simulation/incentive`, {
+                                            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                                            await fetch(`${API_BASE_URL}/api/v1/simulation/incentive`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ zone_id: activeZone.zone_id, riders_to_add: 15 })

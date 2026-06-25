@@ -52,8 +52,9 @@ export default function SetupPage() {
             };
 
             setLoadingStep(1); // Redistributing riders...
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
             
-            const response = await fetch('http://127.0.0.1:8000/api/v1/simulation/initialize', {
+            const response = await fetch(`${API_BASE_URL}/api/v1/simulation/initialize`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),

@@ -25,7 +25,8 @@ export default function UrbanMap() {
                 traffic: simulationParams.traffic,
                 is_festival: simulationParams.isFestival
             });
-            const res = await fetch(`http://localhost:8000/api/v1/simulation/demand-forecast?${queryParams}`);
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${API_BASE_URL}/api/v1/simulation/demand-forecast?${queryParams}`);
             const data = await res.json();
 
             setForecastData(data.forecast);
@@ -56,7 +57,8 @@ export default function UrbanMap() {
 
         setRebalancing(true);
         try {
-            const res = await fetch(`http://localhost:8000/api/v1/simulation/rebalance-riders`, {
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${API_BASE_URL}/api/v1/simulation/rebalance-riders`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
