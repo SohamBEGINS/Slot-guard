@@ -8,11 +8,11 @@ import { Loader2, Navigation, AlertOctagon, ShieldCheck, Zap, Users, ArrowRightL
 
 export default function UrbanMap() {
     const simulationParams = JSON.parse(sessionStorage.getItem('simulationParams') || '{}');
-    
+
     const [forecastData, setForecastData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [rebalancing, setRebalancing] = useState(false);
-    
+
     const [selectedZone, setSelectedZone] = useState(null);
     const [sourceZoneId, setSourceZoneId] = useState("");
     const [transferAmount, setTransferAmount] = useState([5]);
@@ -27,12 +27,12 @@ export default function UrbanMap() {
             });
             const res = await fetch(`http://localhost:8000/api/v1/simulation/demand-forecast?${queryParams}`);
             const data = await res.json();
-            
+
             setForecastData(data.forecast);
-            
+
             // Update cache so ZoneIntelligence gets the fresh rebalanced data
             sessionStorage.setItem('cachedForecast', JSON.stringify(data.forecast));
-            
+
         } catch (err) {
             console.error("Failed to fetch forecast:", err);
         } finally {
@@ -53,7 +53,7 @@ export default function UrbanMap() {
 
     const handleRebalance = async () => {
         if (!selectedZone || !sourceZoneId) return;
-        
+
         setRebalancing(true);
         try {
             const res = await fetch(`http://localhost:8000/api/v1/simulation/rebalance-riders`, {
@@ -65,16 +65,16 @@ export default function UrbanMap() {
                     rider_count: transferAmount[0]
                 })
             });
-            
+
             if (!res.ok) throw new Error("Rebalance failed");
-            
+
             // Refetch to see the new capacity impacts
             await fetchForecast();
-            
+
             // Reset panel
             setSourceZoneId("");
             setTransferAmount([5]);
-            
+
         } catch (err) {
             console.error(err);
             alert("Failed to rebalance riders. Check source capacity.");
@@ -94,12 +94,12 @@ export default function UrbanMap() {
     const getZoneMetrics = (zone) => {
         const peakDemand = Math.max(...zone.hours.map(h => h.predicted_demand));
         const ratio = peakDemand / zone.capacity;
-        
+
         let status = 'SAFE';
         let color = 'bg-green-500/20 border-green-500/50 text-green-400';
         let hoverColor = 'hover:bg-green-500/30 hover:border-green-400';
         let icon = <ShieldCheck className="w-8 h-8 text-green-500" />;
-        
+
         if (ratio >= 1.0) {
             status = 'CRITICAL';
             color = 'bg-red-500/20 border-red-500/50 text-red-400';
@@ -127,16 +127,16 @@ export default function UrbanMap() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
-                
+
                 {/* LEFT: THE CITY GRID */}
                 <div className="lg:col-span-2 flex flex-col">
                     <div className="grid grid-cols-4 gap-4 flex-1 bg-card/20 p-6 rounded-3xl border border-border/30">
                         {forecastData.map(zone => {
                             const { peakDemand, status, color, hoverColor, icon } = getZoneMetrics(zone);
                             const isSelected = selectedZone?.zone_id === zone.zone_id;
-                            
+
                             return (
-                                <div 
+                                <div
                                     key={zone.zone_id}
                                     onClick={() => setSelectedZone(zone)}
                                     className={`relative flex flex-col items-center justify-center p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 backdrop-blur-sm
@@ -147,7 +147,7 @@ export default function UrbanMap() {
                                     <div className="mb-4">{icon}</div>
                                     <h3 className="text-xl font-bold mb-1">{zone.zone_name}</h3>
                                     <p className="text-sm font-semibold tracking-wider uppercase opacity-80 mb-4">{status}</p>
-                                    
+
                                     <div className="w-full bg-black/40 rounded-xl p-3 flex justify-between items-center text-sm mt-auto">
                                         <div className="flex flex-col items-center">
                                             <span className="text-muted-foreground text-xs uppercase font-bold">Riders</span>
@@ -221,9 +221,9 @@ export default function UrbanMap() {
                                                 <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Fleet Transfer</h3>
                                                 <span className="text-3xl font-black text-primary">{transferAmount[0]} <span className="text-lg text-muted-foreground font-medium">riders</span></span>
                                             </div>
-                                            <Slider 
-                                                defaultValue={[5]} 
-                                                max={forecastData.find(z => z.zone_id.toString() === sourceZoneId)?.active_riders || 10} 
+                                            <Slider
+                                                defaultValue={[5]}
+                                                max={forecastData.find(z => z.zone_id.toString() === sourceZoneId)?.active_riders || 10}
                                                 step={1}
                                                 onValueChange={setTransferAmount}
                                                 className="py-4"
@@ -231,8 +231,8 @@ export default function UrbanMap() {
                                         </div>
                                     )}
 
-                                    <Button 
-                                        size="lg" 
+                                    <Button
+                                        size="lg"
                                         className="w-full h-16 text-lg font-black tracking-wider uppercase rounded-xl mt-auto"
                                         disabled={!sourceZoneId || rebalancing}
                                         onClick={handleRebalance}

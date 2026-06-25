@@ -1,79 +1,57 @@
-# Hyperlocal Delivery Slot Prediction & Rule Engine
+# 🚀 Slot Guard | Predictive Hyperlocal Logistics
 
 ## 📖 Project Overview
-This project is an end-to-end Machine Learning system designed for hyperlocal delivery platforms (e.g., Zepto, Blinkit, Instacart). It proactively prevents **"Delivery Collisions"**—scenarios where the number of customer orders exceeds the physical capacity of active delivery riders in a specific zone.
+Slot Guard is an enterprise-grade Machine Learning system designed for hyperlocal delivery platforms (e.g., Zepto, Blinkit, Instacart). It proactively prevents **"Delivery Collisions"**—scenarios where customer demand exceeds the physical capacity of active delivery riders.
 
-The system powers a **Customer Checkout UI**. When a user attempts to select a delivery time slot (e.g., 8:00 PM), the backend dynamically calculates if the slot should be available or grayed out based on an AI-driven prediction of upcoming demand versus live mathematical capacity.
-
----
-
-## 🛠️ Tech Stack
-* **Machine Learning:** XGBoost, Scikit-learn, Pandas
-* **MLOps Pipeline:** MLflow (Model Registry & Tracking), DVC (Data Version Control)
-* **Backend** FastAPI, Pydantic, Python 3
-* **Frontend** React , JavaScript
-* **Database & ORM:** PostgreSql , SQLAlchemy
-* **Dependency Management:** `uv`
+By running an XGBoost Regression model against live city conditions (Weather, Traffic, Active Fleet), Slot Guard dynamically forecasts hourly delivery load and determines exactly when delivery time slots must be grayed out in a customer's checkout UI.
 
 ---
 
-## 🧠 Core Business Logic (The Math)
-The decision to block or open a checkout slot is determined by comparing two distinct metrics:
+## 🏗️ Architecture & Tech Stack
 
-1. **Live Capacity (Supply):** Calculated via a Strategy Pattern.
-   * `Standard Math:` Active Riders × 2.0 (orders per hour).
-   * `Severe Weather Math:` Active Riders × 1.2 (riders are slower in rain).
-2. **Predicted Demand (Demand):** Predicted instantly by an XGBoost Regression model. The model analyzes time (Hour Sine/Cosine), weather severity, festivals, traffic, and the current momentum of early bookings (`Current_Load`).
+### 🧠 The Prediction Engine
+- **Machine Learning:** XGBoost, Scikit-learn, Pandas
+- **MLOps (Model Registry):** DagsHub / MLflow. The backend dynamically fetches the `@champion` model weights directly from the cloud on startup.
+- **Features Analyzed:** Hour of Day (Sine/Cosine), Weather Severity, Traffic Congestion, Festival Surges, and Baseline Order Momentum.
 
-**The Rule:** If `Predicted Demand > Live Capacity`, the slot is full and the API returns `{"is_available": false}`.
+### ⚙️ The Backend (FastAPI)
+- **Framework:** FastAPI, Pydantic, Python 3.12
+- **Database:** Supabase (PostgreSQL) using SQLAlchemy ORM.
+- **Package Manager:** `uv` (Ultra-fast Python package installer).
+- **Core Design:** 
+  - Uses the **Singleton Pattern** to guarantee the ML model is loaded into RAM exactly once.
+  - Implements the **Strategy Pattern** to scale rider capacity (e.g., riders are mathematically slower in severe rain).
 
----
-
-## 🏗️ Backend Architecture (Clean Architecture)
-
-The FastAPI backend is built with Enterprise-grade High-Level Design (HLD) and Low-Level Design (LLD) patterns to ensure high concurrency and maintainability.
-
-### Key Architectural Patterns:
-1. **Facade Pattern (`SlotAvailabilityFacade`):** The orchestrator. It fetches live riders from the Database Repository, momentum from the Demand Repository, runs the Strategy math, and queries the ML model.
-2. **Repository Pattern:** Isolates all SQLAlchemy database logic. Allows for fast mock-testing and future database swaps (e.g., SQLite to PostgreSQL) without touching the core ML logic.
-3. **Strategy Pattern (`CapacityStrategy`):** Encapsulates the math rules for capacity. Allows dynamic mathematical multipliers based on weather conditions without bloated `if/else` logic.
-4. **Singleton Pattern (`MLManager`):** Guarantees the heavy 100MB+ XGBoost model is loaded into server RAM exactly **once** upon boot, sharing the instance across all concurrent web requests.
-5. **Thread Pool Offloading:** `model.predict()` is a CPU-bound blocking operation. The `MLManager` explicitly offloads inference to an external Thread Pool to prevent Python's Global Interpreter Lock (GIL) from freezing the async FastAPI event loop.
-
-### UML Class Diagram
-
+### 🧩 UML Class Diagram (Backend Architecture)
 ```mermaid
 classDiagram
     %% API Layer
+    class SimulationRouter {
+        <<FastAPI Router>>
+        +initialize_simulation()
+        +get_demand_forecast()
+    }
     class CheckoutSlotAPI {
         <<FastAPI Router>>
-        +get_available_slots(zone_id) JSON
+        +get_available_slots()
     }
 
     %% Facade Pattern (Orchestrator)
     class SlotAvailabilityFacade {
         <<Service Layer>>
         -ml_manager: MLManager
-        -rider_repo: RiderRepository
-        -demand_repo: SlotDemandRepository
+        -rider_repo: SQLRiderRepository
+        -demand_repo: SQLSlotDemandRepository
         -strategy: CapacityStrategy
         +evaluate_slot(zone_id, slot_time) SlotStatus
     }
 
     %% Repository Pattern (Data Access)
-    class RiderRepository {
-        <<interface>>
-        +get_active_riders(zone_id) int
-    }
     class SQLRiderRepository {
         +get_active_riders(zone_id) int
     }
-    class SlotDemandRepository {
-        <<interface>>
-        +get_current_load(zone_id) int
-    }
     class SQLSlotDemandRepository {
-        +get_current_load(zone_id) int
+        +get_current_load(zone_id, slot_time) int
     }
 
     %% Strategy Pattern (Business Logic)
@@ -87,65 +65,87 @@ classDiagram
     class SevereWeatherStrategy {
         +calculate_capacity(active_riders) int
     }
-
-    %% Factory & Singleton Pattern (MLOps Integration)
-    class MLModelFactory {
-        +get_predictor(config) MLManager
+    class FestivalStrategy {
+        +calculate_capacity(active_riders) int
     }
+
+    %% ML Singleton Pattern
     class MLManager {
         <<Singleton>>
         -model_in_memory
         +load_model(mlflow_uri)
-        +predict(features) float <<Offloaded to Thread Pool (GIL Safe)>>
+        +predict_async(features) float <<Offloaded Thread>>
     }
 
     %% Relationships
+    SimulationRouter --> SlotAvailabilityFacade : forecasts
+    SimulationRouter --> MLManager : initializes model
     CheckoutSlotAPI --> SlotAvailabilityFacade : asks if slot is open
-    SlotAvailabilityFacade --> RiderRepository : fetches live supply
-    SlotAvailabilityFacade --> SlotDemandRepository : fetches momentum (Current_Load)
+    SlotAvailabilityFacade --> SQLRiderRepository : fetches live supply
+    SlotAvailabilityFacade --> SQLSlotDemandRepository : fetches momentum
     SlotAvailabilityFacade --> CapacityStrategy : executes math
-    SlotAvailabilityFacade --> MLManager : fetches prediction (Thread Pool)
+    SlotAvailabilityFacade --> MLManager : fetches prediction
     
-    RiderRepository <|-- SQLRiderRepository : implements
-    SlotDemandRepository <|-- SQLSlotDemandRepository : implements
     CapacityStrategy <|-- StandardDayStrategy : implements
     CapacityStrategy <|-- SevereWeatherStrategy : implements
-    
-    MLModelFactory ..> MLManager : instantiates
+    CapacityStrategy <|-- FestivalStrategy : implements
+```
+
+### 🖥️ The Frontend (React + Vite)
+- **Framework:** React, Vite, TailwindCSS
+- **UI Components:** Radix UI, Framer Motion, Lucide Icons, Recharts (for dynamic data visualization).
+- **Aesthetic:** A premium, "Cyberpunk/Command Center" design featuring glassmorphism, glowing emerald accents, and immersive terminal loaders.
+
+---
+
+## 🎮 The Mission Control Dashboard
+We built an immersive Admin Dashboard to simulate logistics scenarios and visualize predictions:
+
+1. **Setup Matrix:** A sleek dark-mode configuration screen where admins can inject variables:
+   - Target Time
+   - Active Fleet Size
+   - Weather Conditions (Clear, Rain, Storm)
+   - Traffic Levels
+   - Festival/Holiday multipliers (Applies a 2x demand surge)
+2. **Terminal Initialization:** A dynamic loading sequence that simulates the backend fetching weights from MLflow and wiping active simulation states.
+3. **Zone Intelligence Dashboard:** 
+   - Displays a 6-hour rolling chart (Demand vs Capacity).
+   - Dynamically highlights **Red Zones** where the demand breaches the active rider capacity (A Delivery Collision).
+   - Features tactical counters for "Total Demand", "Projected Riders", and "Breach Risk".
+
+---
+
+## 🛠️ Local Setup Instructions
+
+### 1. Backend (FastAPI)
+```bash
+cd backend
+# Install dependencies ultra-fast using uv
+uv sync
+
+# Create a .env file with your Supabase and DagsHub credentials:
+# DATABASE_URL="postgresql://[user]:[password]@db.[project].supabase.co:5432/postgres"
+# MLFLOW_TRACKING_URI="https://dagshub.com/..."
+# MLFLOW_TRACKING_USERNAME="..."
+# MLFLOW_TRACKING_PASSWORD="..."
+
+# Run the backend server
+uv run uvicorn app.main:app --reload
+```
+
+### 2. Frontend (React)
+```bash
+cd frontend
+# Install Node dependencies
+npm install
+
+# Run the Vite development server
+npm run dev
 ```
 
 ---
 
-## 🚀 End-to-End Walkthrough
-1. **Frontend UI** (Customer Checkout Page) asks `CheckoutSlotAPI` for available time slots in Zone 4.
-2. `CheckoutSlotAPI` hands Zone 4 and the timeslot (e.g., 8:00 PM) to the `SlotAvailabilityFacade`.
-3. `SlotAvailabilityFacade` asks `SQLRiderRepository` for active riders. (Result: **50 riders**)
-4. `SlotAvailabilityFacade` asks `SQLSlotDemandRepository` for current early bookings. (Result: **20 bookings**)
-5. `SlotAvailabilityFacade` selects the `StandardDayStrategy`.
-6. `SlotAvailabilityFacade` asks the Strategy for capacity. (Math: 50 riders * 2 = **100 Capacity**).
-7. `SlotAvailabilityFacade` hands the 20 bookings and time data to the `MLManager`.
-8. `MLManager` offloads the math to a background CPU thread and runs XGBoost. (Prediction: **115 Demand**).
-9. `SlotAvailabilityFacade` compares them: **115 Demand > 100 Capacity**. The slot is mathematically full!
-10. `SlotAvailabilityFacade` returns `False` to the API.
-11. `CheckoutSlotAPI` returns `{"slot": "20:00", "is_available": false}` to the Frontend.
-12. The React Frontend renders the 8:00 PM button as **grayed out and disabled** so the user must pick a different time.
-
----
-
-## 🖥️ Admin Dashboard UI (Simulation & Monitoring)
-The project includes an Admin Dashboard to visualize the backend ML predictions and provide manual override controls.
-
-### Proposed Components:
-1. **Delivery Collision Forecast (Bar Chart):**
-   * **6-Hour Lookahead:** Displays a rolling 6-hour forecast for a selected zone.
-   * **Demand vs. Capacity:** A bar chart showing predicted demand (Orders/Hr) against a horizontal dotted line representing the zone's `MAX CAPACITY`.
-   * **Visual Alerts:** Bars that breach the capacity line dynamically change color (e.g., Green to Red) to visually highlight a "Collision" status.
-2. **Congested Zone Heatmap:**
-   * A spatial map (or grid) of all delivery zones. Zones currently experiencing or forecasting a collision are highlighted in red (Congested), providing a bird's-eye view of city-wide health.
-3. **Manual Override Controls ("God Mode"):**
-   * **Force Close Toggle:** Instantly overrides the ML model to gray out a specific delivery slot in case of an emergency.
-   * **Dynamic Rebalancing (Surge Riders):** An input to simulate "pulling in" emergency riders from a neighboring zone, artificially boosting live capacity to re-open a grayed-out slot.
-4. **Platform Configuration:**
-   * Controls for admins to define or adjust the fixed time windows (e.g., modifying `08:00 - 09:00` shifts) for different regions.
-5. **Continuous Training (MLOps) Trigger:**
-   * A **"Retrain Model"** action button. In a production MLOps pipeline, this triggers a background script to pull the latest 3-6 months of real transaction data (rolling window) and retrain the XGBoost model. This prevents "model drift" by adapting to new consumer trends, automatically registering the new version in MLflow.
+## 🚢 Deployment Strategy
+This project is structured perfectly for a two-tier free deployment:
+1. **Frontend:** Deployable instantly to **Vercel**. Provides ultra-fast edge delivery for the React app.
+2. **Backend:** Deployable to **Railway or Render**. Unlike Vercel's serverless limits, Railway provides a persistent container (with 500MB+ RAM), ensuring the XGBoost model stays permanently loaded in memory for millisecond response times without timing out.

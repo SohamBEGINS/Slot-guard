@@ -21,15 +21,15 @@ export default function TerminalLoader({
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-card/95 border border-primary/30 shadow-2xl shadow-primary/20 rounded-2xl p-8 overflow-hidden flex flex-col items-center justify-center relative"
+        className="w-full max-w-md bg-black/80 border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.15)] rounded-2xl p-8 overflow-hidden flex flex-col items-center justify-center relative backdrop-blur-md"
       >
         {/* Sleek Progress Bar at top */}
         <div 
-          className="absolute top-0 left-0 h-1 bg-primary transition-all duration-300" 
+          className="absolute top-0 left-0 h-1 bg-emerald-500 transition-all duration-300 shadow-[0_0_10px_rgba(16,185,129,0.8)]" 
           style={{ width: `${((activeIndex + 1) / steps.length) * 100}%` }} 
         />
 
-        <Loader2 className="w-10 h-10 text-primary animate-spin mb-6" />
+        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-6 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
         
         <div className="h-8 flex items-center justify-center w-full relative">
           <AnimatePresence mode="wait">

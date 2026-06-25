@@ -5,8 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Rocket, CloudRain, Calendar, PartyPopper, Car, Users, ShoppingBag } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Rocket, CloudRain, Calendar, PartyPopper, Car, Users, ShoppingBag, Clock } from "lucide-react";
 import TerminalLoader from "../components/TerminalLoader";
+
+// Adjust path if logo is elsewhere
+import logo from '../assets/logo_transparent.png';
 
 export default function SetupPage() {
     const navigate = useNavigate();
@@ -25,28 +29,19 @@ export default function SetupPage() {
         fleetSize: 200,
         initialOrders: 200,
     });
+    
     const [isLaunching, setIsLaunching] = useState(false);
     const [loadingStep, setLoadingStep] = useState(0);
+    const [initError, setInitError] = useState(null);
 
     const handleLaunch = async () => {
         setIsLaunching(true);
-        setLoadingStep(0);
-        
-        // Decoupled dynamic pacing logic
-        let currentStep = 0;
-        let isApiDone = false;
-        
-        const tick = () => {
-            if (isApiDone) return; // If API finishes, the fast-forward takes over
-            currentStep++;
-            if (currentStep < 5) {
-                setLoadingStep(currentStep);
-                setTimeout(tick, 900); // Normal pace
-            }
-        };
-        setTimeout(tick, 900); // Start ticking
+        setInitError(null);
+        setLoadingStep(0); // Wiping active simulation states...
 
         try {
+            await new Promise(r => setTimeout(r, 600));
+
             const payload = {
                 target_time: new Date(simulationParams.dateTime).toISOString(),
                 weather: simulationParams.weather,
@@ -55,214 +50,256 @@ export default function SetupPage() {
                 fleet_size: simulationParams.fleetSize,
                 initial_orders: simulationParams.initialOrders,
             };
-            const response = await fetch('http://localhost:8000/api/v1/simulation/initialize', {
+
+            setLoadingStep(1); // Redistributing riders...
+            
+            const response = await fetch('http://127.0.0.1:8000/api/v1/simulation/initialize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-            if (!response.ok) throw new Error('Initialization failed');
             
-            // API Finished! Trigger fast-forward!
-            isApiDone = true;
+            if (!response.ok) throw new Error(`API returned ${response.status}`);
+
+            setLoadingStep(4); // Downloading dependencies...
+            await new Promise(r => setTimeout(r, 800));
+
+            setLoadingStep(6); // Activating endpoints...
             
-            const fastForward = async () => {
-                while (currentStep < 6) {
-                    currentStep++;
-                    setLoadingStep(currentStep);
-                    await new Promise(r => setTimeout(r, 200)); // Zoom through remaining steps!
-                }
-                // Persist params and snap to dashboard
+            try {
                 sessionStorage.setItem('simulationParams', JSON.stringify(simulationParams));
-                setTimeout(() => {
-                    navigate('/admin/zones');
-                }, 400);
-            };
-            
-            fastForward();
-            
+            } catch (e) {
+                console.warn("Could not save to sessionStorage", e);
+            }
+
+            navigate('/admin/zones');
+
         } catch (err) {
-            console.error(err);
-            alert('Failed to initialize simulation. Is the backend running?');
+            console.error("Initialization Failed:", err);
+            setInitError(err.message);
             setIsLaunching(false);
-            isApiDone = true;
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-6 relative overflow-hidden">
+        <div className="min-h-screen w-full relative overflow-hidden flex">
+            {/* CYBER BACKGROUND */}
+            <div className="absolute inset-0 cyber-pattern z-0 opacity-80" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/80 z-0 pointer-events-none" />
+
             {/* Terminal Loader Overlay */}
             {isLaunching && <TerminalLoader activeIndex={loadingStep} />}
 
-            {/* Background glow */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background z-0" />
-
-            <Card className="w-full max-w-3xl z-10 border-primary/20 shadow-2xl shadow-primary/10 bg-card/80 backdrop-blur-sm">
-                <CardHeader className="text-center space-y-2 pb-6">
-                    <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-2 border border-primary/20">
-                        <Rocket className="w-8 h-8 text-primary" />
-                    </div>
-                    <CardTitle className="text-3xl font-bold tracking-tight">Mission Briefing</CardTitle>
-                    <CardDescription className="text-muted-foreground text-base">
-                        Configure scenario parameters before launching the prediction engine.
-                    </CardDescription>
-                </CardHeader>
-
-                <CardContent className="px-8 pb-6">
-                    <div className="grid grid-cols-2 gap-0">
-
-                        {/* ── LEFT COLUMN ── */}
-                        <div className="space-y-8 pr-8 border-r border-border/40">
-
-                            {/* Target Date & Time */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold flex items-center gap-2 text-foreground/80">
-                                    <Calendar className="w-4 h-4 text-primary" />
-                                    Target Date &amp; Time
-                                </label>
-                                <Input
-                                    type="datetime-local"
-                                    value={simulationParams.dateTime}
-                                    onChange={(e) => setSimulationParams({ ...simulationParams, dateTime: e.target.value })}
-                                    className="bg-muted/30 border-border/50 text-base py-5 focus-visible:ring-primary"
-                                />
-                                <p className="text-xs text-muted-foreground text-right">
-                                    Sets the hour window for demand forecasting.
-                                </p>
-                            </div>
-
-                            {/* Weather Condition */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold flex items-center gap-2 text-foreground/80">
-                                    <CloudRain className="w-4 h-4 text-primary" />
-                                    Weather Condition
-                                </label>
-                                <Select
-                                    value={simulationParams.weather}
-                                    onValueChange={(val) => setSimulationParams({ ...simulationParams, weather: val })}
-                                >
-                                    <SelectTrigger className="bg-muted/30 border-border/50 h-12 text-base focus:ring-primary">
-                                        <SelectValue placeholder="Select weather..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="CLEAR">Clear skies (Normal)</SelectItem>
-                                        <SelectItem value="WINDY">Windy (Slight delays)</SelectItem>
-                                        <SelectItem value="RAIN">Heavy Rain (Slower deliveries)</SelectItem>
-                                        <SelectItem value="STORM">Severe Storm (Reduced capacity)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <p className="text-xs text-muted-foreground text-right">
-                                    Affects delivery speed &amp; capacity multiplier.
-                                </p>
-                            </div>
-
-                            {/* City Traffic Level */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold flex items-center gap-2 text-foreground/80">
-                                    <Car className="w-4 h-4 text-primary" />
-                                    City Traffic Level
-                                </label>
-                                <Select
-                                    value={simulationParams.traffic}
-                                    onValueChange={(val) => setSimulationParams({ ...simulationParams, traffic: val })}
-                                >
-                                    <SelectTrigger className="bg-muted/30 border-border/50 h-12 text-base focus:ring-primary">
-                                        <SelectValue placeholder="Select traffic..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="LOW">Normal Traffic</SelectItem>
-                                        <SelectItem value="MEDIUM">Moderate Congestion</SelectItem>
-                                        <SelectItem value="HIGH">Heavy Traffic</SelectItem>
-                                        <SelectItem value="GRIDLOCK">Gridlock</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <p className="text-xs text-muted-foreground text-right">
-                                    Scales total order demand city-wide.
-                                </p>
-                            </div>
-
+            <div className="w-full flex z-10 relative">
+                {/* LEFT COLUMN: Logo & Branding */}
+                <div className="hidden lg:flex w-1/2 flex-col items-center justify-center border-r border-white/5 relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-black/50" />
+                    
+                    <div className="relative flex flex-col items-center animate-in slide-in-from-left duration-700 fade-in">
+                        <div className="w-64 h-64 relative mb-8">
+                            <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full animate-pulse" />
+                            <img src={logo} alt="Slot Guard Logo" className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                         </div>
-
-                        {/* ── RIGHT COLUMN ── */}
-                        <div className="space-y-8 pl-8">
-
-                            {/* Total Active Fleet Size */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold flex items-center justify-between text-foreground/80">
-                                    <span className="flex items-center gap-2">
-                                        <Users className="w-4 h-4 text-primary" />
-                                        Total Active Fleet Size
-                                    </span>
-                                    <span className="text-primary font-bold text-sm">{simulationParams.fleetSize} Riders</span>
-                                </label>
-                                <Input
-                                    type="number"
-                                    min="50"
-                                    max="1000"
-                                    step="10"
-                                    value={simulationParams.fleetSize}
-                                    onChange={(e) => setSimulationParams({ ...simulationParams, fleetSize: parseInt(e.target.value) || 0 })}
-                                    className="bg-muted/30 border-border/50 h-12 text-base focus-visible:ring-primary"
-                                />
-                                <p className="text-xs text-muted-foreground text-right">
-                                    ≈ {Math.floor(simulationParams.fleetSize / 8)} riders per zone
-                                </p>
+                        
+                        <div className="text-center space-y-4">
+                            <h1 className="text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-emerald-100 to-emerald-500/50 drop-shadow-sm font-mono">
+                                Slot Guard
+                            </h1>
+                            <div className="flex items-center justify-center gap-3">
+                                <div className="h-[1px] w-12 bg-emerald-500/50" />
+                                <Badge variant="outline" className="text-emerald-400 border-emerald-500/30 bg-emerald-500/10 tracking-widest uppercase font-bold py-1 px-3">
+                                    v2.0.4-beta
+                                </Badge>
+                                <div className="h-[1px] w-12 bg-emerald-500/50" />
                             </div>
+                            <h2 className="text-sm font-mono tracking-[0.3em] text-gray-400 uppercase mt-4">
+                                Predictive Hyperlocal Logistics
+                            </h2>
+                        </div>
+                    </div>
+                </div>
 
-                            {/* Initial City Orders */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold flex items-center justify-between text-foreground/80">
-                                    <span className="flex items-center gap-2">
-                                        <ShoppingBag className="w-4 h-4 text-primary" />
-                                        Initial City Orders
-                                    </span>
-                                    <span className="text-primary font-bold text-sm">{simulationParams.initialOrders} Orders</span>
-                                </label>
-                                <Input
-                                    type="number"
-                                    min="50"
-                                    max="1000"
-                                    step="10"
-                                    value={simulationParams.initialOrders}
-                                    onChange={(e) => setSimulationParams({ ...simulationParams, initialOrders: parseInt(e.target.value) || 0 })}
-                                    className="bg-muted/30 border-border/50 h-12 text-base focus-visible:ring-primary"
-                                />
-                                <p className="text-xs text-muted-foreground text-right">
-                                    ≈ {Math.floor(simulationParams.initialOrders / 8)} orders injected per zone
-                                </p>
-                            </div>
+                {/* RIGHT COLUMN: Setup Card */}
+                <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 relative">
+                    <div className="w-full max-w-2xl z-10 border border-white/10 shadow-2xl shadow-black/80 bg-black/40 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col">
 
-                            {/* Active Festival / Holiday */}
-                            <div className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-muted/20 hover:bg-muted/30 transition-colors">
-                                <div className="space-y-1">
-                                    <label className="text-sm font-semibold flex items-center gap-2 text-foreground/80">
-                                        <PartyPopper className="w-4 h-4 text-primary" />
-                                        Active Festival / Holiday
-                                    </label>
-                                    <p className="text-xs text-muted-foreground">Applies 2x demand surge.</p>
+                        {/* CARD HEADER */}
+                        <div className="p-8 border-b border-white/10 bg-white/[0.02] relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50" />
+                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+                                <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)] flex-shrink-0">
+                                    <Rocket className="w-8 h-8 text-emerald-400" />
                                 </div>
-                                <Switch
-                                    checked={simulationParams.isFestival}
-                                    onCheckedChange={(checked) => setSimulationParams({ ...simulationParams, isFestival: checked })}
-                                    className="data-[state=checked]:bg-primary"
-                                />
+                                <div className="pt-1">
+                                    <h2 className="text-3xl font-black text-white tracking-widest font-mono uppercase drop-shadow-md">Mission Briefing</h2>
+                                    <p className="text-sm text-gray-400 font-mono mt-2 leading-relaxed">Configure scenario parameters before launching the prediction engine.</p>
+                                </div>
                             </div>
-
                         </div>
 
-                    </div>
-                </CardContent>
+                        {/* ERROR ALERT UI */}
+                        {initError && (
+                            <div className="bg-red-500/10 border-l-4 border-red-500 p-4 m-6 rounded flex items-center gap-3">
+                                <span className="text-red-500 font-bold">ERROR:</span>
+                                <span className="text-red-200 font-mono text-sm">{initError}</span>
+                            </div>
+                        )}
 
-                <CardFooter className="px-8 pt-2 pb-8">
-                    <Button
-                        onClick={handleLaunch}
-                        disabled={isLaunching}
-                        className="w-full h-14 text-lg font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform bg-primary hover:bg-primary/90 text-primary-foreground"
-                    >
-                        {isLaunching ? 'INITIALIZING...' : 'INITIALIZE SIMULATION'}
-                        <Rocket className={`w-5 h-5 ml-2 ${isLaunching ? 'animate-spin' : ''}`} />
-                    </Button>
-                </CardFooter>
-            </Card>
+                        {/* CARD CONTENT - LIST STYLE */}
+                        <div className="flex flex-col divide-y divide-white/5">
+
+                            {/* ROW 1: Target Time */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors">
+                                        <Calendar className="w-5 h-5 text-gray-300" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">Target Date &amp; Time</h3>
+                                        <p className="text-xs text-gray-500 mt-1">Sets the window for demand forecasting.</p>
+                                    </div>
+                                </div>
+                                <div className="w-full sm:w-64">
+                                    <Input
+                                        type="datetime-local"
+                                        value={simulationParams.dateTime}
+                                        onChange={(e) => setSimulationParams({ ...simulationParams, dateTime: e.target.value })}
+                                        className="bg-black/50 border-white/10 focus-visible:ring-emerald-500 text-gray-200 h-11 px-4 shadow-inner [color-scheme:dark]"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* ROW 2: Active Fleet Size */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors">
+                                        <Users className="w-5 h-5 text-gray-300" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">Active Fleet Size</h3>
+                                        <p className="text-xs text-gray-500 mt-1">Total active riders deployed city-wide.</p>
+                                    </div>
+                                </div>
+                                <div className="w-full sm:w-64">
+                                    <Input
+                                        type="number"
+                                        min="50" max="1000" step="10"
+                                        value={simulationParams.fleetSize}
+                                        onChange={(e) => setSimulationParams({ ...simulationParams, fleetSize: parseInt(e.target.value) || 0 })}
+                                        className="bg-black/50 border-white/10 focus-visible:ring-primary text-gray-200 h-11 px-4 font-mono text-lg shadow-inner"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* ROW 3: Initial Orders */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors">
+                                        <ShoppingBag className="w-5 h-5 text-gray-300" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">Initial City Orders</h3>
+                                        <p className="text-xs text-gray-500 mt-1">Base level of orders to inject.</p>
+                                    </div>
+                                </div>
+                                <div className="w-full sm:w-64">
+                                    <Input
+                                        type="number"
+                                        min="50" max="1000" step="10"
+                                        value={simulationParams.initialOrders}
+                                        onChange={(e) => setSimulationParams({ ...simulationParams, initialOrders: parseInt(e.target.value) || 0 })}
+                                        className="bg-black/50 border-white/10 focus-visible:ring-primary text-gray-200 h-11 px-4 font-mono text-lg shadow-inner"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* ROW 4: Weather */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors">
+                                        <CloudRain className="w-5 h-5 text-gray-300" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">Weather Condition</h3>
+                                        <p className="text-xs text-gray-500 mt-1">Affects delivery speed and capacities.</p>
+                                    </div>
+                                </div>
+                                <div className="w-full sm:w-64">
+                                    <Select value={simulationParams.weather} onValueChange={(val) => setSimulationParams({ ...simulationParams, weather: val })}>
+                                        <SelectTrigger className="bg-black/50 border-white/10 focus:ring-primary text-gray-200 h-11 px-4 shadow-inner">
+                                            <SelectValue placeholder="Select weather..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="CLEAR">Clear skies</SelectItem>
+                                            <SelectItem value="WINDY">Windy</SelectItem>
+                                            <SelectItem value="RAIN">Heavy Rain</SelectItem>
+                                            <SelectItem value="STORM">Severe Storm</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* ROW 5: Traffic */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors">
+                                        <Car className="w-5 h-5 text-gray-300" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">City Traffic Level</h3>
+                                        <p className="text-xs text-gray-500 mt-1">Scales total order demand city-wide.</p>
+                                    </div>
+                                </div>
+                                <div className="w-full sm:w-64">
+                                    <Select value={simulationParams.traffic} onValueChange={(val) => setSimulationParams({ ...simulationParams, traffic: val })}>
+                                        <SelectTrigger className="bg-black/50 border-white/10 focus:ring-primary text-gray-200 h-11 px-4 shadow-inner">
+                                            <SelectValue placeholder="Select traffic..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="LOW">Normal Traffic</SelectItem>
+                                            <SelectItem value="MEDIUM">Moderate Congestion</SelectItem>
+                                            <SelectItem value="HIGH">Heavy Traffic</SelectItem>
+                                            <SelectItem value="GRIDLOCK">Gridlock</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* ROW 6: Festival */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 bg-emerald-500/10 rounded-lg border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)] group-hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all">
+                                        <PartyPopper className="w-5 h-5 text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-emerald-400 tracking-wider">Active Festival / Holiday</h3>
+                                        <p className="text-xs text-emerald-500/70 mt-1">Applies high-demand surge multipliers.</p>
+                                    </div>
+                                </div>
+                                <div className="w-auto flex items-center pr-4">
+                                    <Switch
+                                        checked={simulationParams.isFestival}
+                                        onCheckedChange={(checked) => setSimulationParams({ ...simulationParams, isFestival: checked })}
+                                        className="data-[state=checked]:bg-emerald-500 scale-125"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* CARD FOOTER */}
+                        <div className="p-8 border-t border-white/10 bg-white/[0.02]">
+                            <Button
+                                onClick={handleLaunch}
+                                disabled={isLaunching}
+                                className="w-full h-14 text-sm font-mono tracking-[0.2em] uppercase transition-all bg-black/40 hover:bg-emerald-950/40 text-emerald-400 rounded-lg border border-emerald-500/30 hover:border-emerald-400 backdrop-blur-sm"
+                            >
+                                {isLaunching ? 'SYSTEM.INITIALIZING...' : '>_ INITIALIZE_SIMULATION'}
+                                <Rocket className={`w-4 h-4 ml-3 ${isLaunching ? 'animate-spin' : ''}`} />
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

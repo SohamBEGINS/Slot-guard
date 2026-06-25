@@ -42,7 +42,7 @@ export default function ZoneIntelligence() {
 
     const [forecastData, setForecastData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeZoneId, setActiveZoneId] = useState("1"); 
+    const [activeZoneId, setActiveZoneId] = useState("1");
     const [overrides, setOverrides] = useState({}); // { "zoneId-slot": isOpen (boolean) }
 
     const [loadingSteps, setLoadingSteps] = useState(FORECAST_STEPS);
@@ -55,7 +55,7 @@ export default function ZoneIntelligence() {
 
         let currentStep = 0;
         let isApiDone = false;
-        
+
         const tick = () => {
             if (isApiDone) return;
             currentStep++;
@@ -68,7 +68,7 @@ export default function ZoneIntelligence() {
 
         try {
             await apiCall();
-            
+
             isApiDone = true;
             const fastForward = async () => {
                 while (currentStep < stepsArray.length - 1) {
@@ -156,21 +156,21 @@ export default function ZoneIntelligence() {
     }
 
     const activeZone = forecastData.find(z => z.zone_id.toString() === activeZoneId) || forecastData[0];
-    
+
     // Find the peak value and which hours it occurs
     const peakDemand = Math.max(...activeZone.hours.map(h => h.predicted_demand));
     const peakHours = activeZone.hours
         .filter(h => h.predicted_demand === peakDemand)
         .map(h => h.slot.split(' ')[0]); // Get just the "18:00" part
 
-    const peakHoursDisplay = peakHours.length > 2 
-        ? `${peakHours.slice(0,2).join(', ')}...` 
+    const peakHoursDisplay = peakHours.length > 2
+        ? `${peakHours.slice(0, 2).join(', ')}...`
         : peakHours.join(', ');
 
     return (
         <div className="p-6 flex flex-col min-h-[calc(100vh-2rem)] relative">
             {loading && <TerminalLoader activeIndex={loadingStepIndex} steps={loadingSteps} />}
-            
+
             {/* HEADER & SCENARIO STRIP */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/40 shrink-0">
                 <div>
@@ -219,7 +219,7 @@ export default function ZoneIntelligence() {
                             <p className="text-2xl font-black leading-none">{activeZone.active_riders}</p>
                         </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3 bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl px-6 py-3 shadow-md flex-1">
                         <div className="p-2 bg-primary/10 rounded-full">
                             <Package className="w-5 h-5 text-primary" />
@@ -247,7 +247,7 @@ export default function ZoneIntelligence() {
 
             {/* MAIN CONTENT GRID */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
-                
+
                 {/* LEFT: CHART */}
                 <Card className="xl:col-span-5 border-border/40 shadow-xl bg-card/40 backdrop-blur-md flex flex-col min-h-0">
                     <CardHeader className="pb-2 pt-4">
@@ -256,31 +256,31 @@ export default function ZoneIntelligence() {
                     <CardContent className="flex-1 flex flex-col justify-center min-h-0 pb-2">
                         <div className="h-full w-full min-h-[250px]">
                             <ChartContainer config={{ predicted_demand: { label: "Demand" } }} className="h-full w-full">
-                                    <BarChart accessibilityLayer data={activeZone.hours} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
-                                        <XAxis dataKey="slot" tickLine={false} tickMargin={10} axisLine={false} tick={{ fontSize: 11 }} />
-                                        <YAxis tick={{ fontSize: 11 }} />
-                                        <ChartTooltip content={<ChartTooltipContent />} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
-                                        <ReferenceLine
-                                            y={activeZone.capacity}
-                                            stroke="#ef4444"
-                                            strokeDasharray="5 5"
-                                            strokeWidth={1.5}
-                                            label={{ position: 'top', value: `Max Capacity: ${activeZone.capacity}`, fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }}
-                                        />
-                                        <Bar dataKey="predicted_demand" radius={[4, 4, 0, 0]} maxBarSize={60}>
-                                            {activeZone.hours.map((entry, index) => {
-                                                const key = `${activeZone.zone_id}-${entry.slot}`;
-                                                const overrideStatus = overrides[key];
-                                                const isForceClosed = overrideStatus === false;
-                                                
-                                                let fill = getChartStatusColor(entry.status);
-                                                if (isForceClosed) fill = '#4b5563'; 
-                                                
-                                                return <Cell key={`cell-${index}`} fill={fill} />;
-                                            })}
-                                        </Bar>
-                                    </BarChart>
+                                <BarChart accessibilityLayer data={activeZone.hours} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
+                                    <XAxis dataKey="slot" tickLine={false} tickMargin={10} axisLine={false} tick={{ fontSize: 11 }} />
+                                    <YAxis tick={{ fontSize: 11 }} />
+                                    <ChartTooltip content={<ChartTooltipContent />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                                    <ReferenceLine
+                                        y={activeZone.capacity}
+                                        stroke="#ef4444"
+                                        strokeDasharray="5 5"
+                                        strokeWidth={1.5}
+                                        label={{ position: 'top', value: `Max Capacity: ${activeZone.capacity}`, fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }}
+                                    />
+                                    <Bar dataKey="predicted_demand" radius={[4, 4, 0, 0]} maxBarSize={60}>
+                                        {activeZone.hours.map((entry, index) => {
+                                            const key = `${activeZone.zone_id}-${entry.slot}`;
+                                            const overrideStatus = overrides[key];
+                                            const isForceClosed = overrideStatus === false;
+
+                                            let fill = getChartStatusColor(entry.status);
+                                            if (isForceClosed) fill = '#4b5563';
+
+                                            return <Cell key={`cell-${index}`} fill={fill} />;
+                                        })}
+                                    </Bar>
+                                </BarChart>
                             </ChartContainer>
                         </div>
                     </CardContent>
@@ -295,9 +295,9 @@ export default function ZoneIntelligence() {
                                 <p className="text-xs text-primary mt-1 font-semibold">ZONE: {activeZone.zone_name.toUpperCase()}</p>
                             </div>
                             <div className="flex gap-3">
-                                <Button 
-                                    size="sm" 
-                                    variant="outline" 
+                                <Button
+                                    size="sm"
+                                    variant="outline"
                                     className="border-yellow-500/50 hover:bg-yellow-500/10 text-yellow-500 font-bold"
                                     onClick={async () => {
                                         const apiCall = async () => {
@@ -314,10 +314,10 @@ export default function ZoneIntelligence() {
                                     <TrendingUp className="w-4 h-4 mr-2" />
                                     Enable Surge (+$3.99)
                                 </Button>
-                                
-                                <Button 
-                                    size="sm" 
-                                    variant="outline" 
+
+                                <Button
+                                    size="sm"
+                                    variant="outline"
                                     className="border-green-500/50 hover:bg-green-500/10 text-green-500 font-bold"
                                     onClick={async () => {
                                         const apiCall = async () => {
@@ -412,8 +412,8 @@ export default function ZoneIntelligence() {
                                                     <span className={`text-xs font-bold uppercase tracking-wider ${currentIsOpen ? 'text-green-500' : 'text-muted-foreground'}`}>
                                                         {currentIsOpen ? 'Open' : 'Force Close'}
                                                     </span>
-                                                    <Switch 
-                                                        checked={currentIsOpen} 
+                                                    <Switch
+                                                        checked={currentIsOpen}
                                                         onCheckedChange={() => handleToggleOverride(activeZone.zone_id, h.slot, currentIsOpen)}
                                                         className={currentIsOpen ? 'data-[state=checked]:bg-green-500' : 'bg-muted'}
                                                     />
