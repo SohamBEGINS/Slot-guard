@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Rocket, CloudRain, Calendar, PartyPopper, Car, Users, ShoppingBag } from "lucide-react";
+import TerminalLoader from "../components/TerminalLoader";
 
 export default function SetupPage() {
     const navigate = useNavigate();
@@ -25,9 +26,26 @@ export default function SetupPage() {
         initialOrders: 200,
     });
     const [isLaunching, setIsLaunching] = useState(false);
+    const [loadingStep, setLoadingStep] = useState(0);
 
     const handleLaunch = async () => {
         setIsLaunching(true);
+        setLoadingStep(0);
+        
+        // Decoupled dynamic pacing logic
+        let currentStep = 0;
+        let isApiDone = false;
+        
+        const tick = () => {
+            if (isApiDone) return; // If API finishes, the fast-forward takes over
+            currentStep++;
+            if (currentStep < 5) {
+                setLoadingStep(currentStep);
+                setTimeout(tick, 900); // Normal pace
+            }
+        };
+        setTimeout(tick, 900); // Start ticking
+
         try {
             const payload = {
                 target_time: new Date(simulationParams.dateTime).toISOString(),
@@ -43,19 +61,38 @@ export default function SetupPage() {
                 body: JSON.stringify(payload),
             });
             if (!response.ok) throw new Error('Initialization failed');
-            // Persist params in sessionStorage so all admin pages can read them
-            sessionStorage.setItem('simulationParams', JSON.stringify(simulationParams));
-            navigate('/admin/zones');
+            
+            // API Finished! Trigger fast-forward!
+            isApiDone = true;
+            
+            const fastForward = async () => {
+                while (currentStep < 6) {
+                    currentStep++;
+                    setLoadingStep(currentStep);
+                    await new Promise(r => setTimeout(r, 200)); // Zoom through remaining steps!
+                }
+                // Persist params and snap to dashboard
+                sessionStorage.setItem('simulationParams', JSON.stringify(simulationParams));
+                setTimeout(() => {
+                    navigate('/admin/zones');
+                }, 400);
+            };
+            
+            fastForward();
+            
         } catch (err) {
             console.error(err);
             alert('Failed to initialize simulation. Is the backend running?');
-        } finally {
             setIsLaunching(false);
+            isApiDone = true;
         }
     };
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background p-6 relative overflow-hidden">
+            {/* Terminal Loader Overlay */}
+            {isLaunching && <TerminalLoader activeIndex={loadingStep} />}
+
             {/* Background glow */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background z-0" />
 

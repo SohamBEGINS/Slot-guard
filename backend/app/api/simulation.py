@@ -85,6 +85,11 @@ def initialize_simulation(req: SimulationInitRequest, db: Session = Depends(get_
             current_load=zone_order_counts[z]
         ))
 
+    # 6. Initialize ML Model into RAM
+    # We do this here so the frontend can display a beautiful 5-second loading animation!
+    ml_manager = MLManager()
+    ml_manager.load_model("models:/Delivery_Slot_Model@champion")
+
     db.commit()
 
     return {

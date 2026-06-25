@@ -9,6 +9,32 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Loader2, AlertTriangle, ShieldCheck, Lock, Users, Package, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import TerminalLoader from '../components/TerminalLoader';
+
+const FORECAST_STEPS = [
+    "Analyzing historical base demand...",
+    "Applying Sine/Cosine temporal encoding...",
+    "Injecting weather and traffic severity floats...",
+    "XGBoost computing predictive tensors...",
+    "Updating Urban Activity Map..."
+];
+
+const SURGE_STEPS = [
+    "Triggering dynamic price surge protocol...",
+    "Suppressing 15% of checkout demand...",
+    "Recalculating Zone capacity threshold...",
+    "Recomputing XGBoost predictions...",
+    "Applying UI capacity constraints..."
+];
+
+const INCENTIVE_STEPS = [
+    "Authorizing +₹25 Rider Bonus...",
+    "Deploying 15 standby riders to active pool...",
+    "Expanding base capacity thresholds...",
+    "Recomputing XGBoost safety margins...",
+    "Unlocking Zone delivery slots..."
+];
+
 export default function ZoneIntelligence() {
     const navigate = useNavigate();
 
@@ -18,6 +44,61 @@ export default function ZoneIntelligence() {
     const [loading, setLoading] = useState(true);
     const [activeZoneId, setActiveZoneId] = useState("1"); 
     const [overrides, setOverrides] = useState({}); // { "zoneId-slot": isOpen (boolean) }
+
+    const [loadingSteps, setLoadingSteps] = useState(FORECAST_STEPS);
+    const [loadingStepIndex, setLoadingStepIndex] = useState(0);
+
+    const executeWithLoader = async (stepsArray, apiCall) => {
+        setLoadingSteps(stepsArray);
+        setLoadingStepIndex(0);
+        setLoading(true);
+
+        let currentStep = 0;
+        let isApiDone = false;
+        
+        const tick = () => {
+            if (isApiDone) return;
+            currentStep++;
+            if (currentStep < stepsArray.length - 2) {
+                setLoadingStepIndex(currentStep);
+                setTimeout(tick, 800);
+            }
+        };
+        setTimeout(tick, 800);
+
+        try {
+            await apiCall();
+            
+            isApiDone = true;
+            const fastForward = async () => {
+                while (currentStep < stepsArray.length - 1) {
+                    currentStep++;
+                    setLoadingStepIndex(currentStep);
+                    await new Promise(r => setTimeout(r, 200));
+                }
+                setTimeout(() => setLoading(false), 300);
+            };
+            fastForward();
+        } catch (err) {
+            console.error(err);
+            isApiDone = true;
+            setLoading(false);
+        }
+    };
+
+    const rawFetchForecast = async () => {
+        const queryParams = new URLSearchParams({
+            target_time: simulationParams.dateTime,
+            weather: simulationParams.weather,
+            traffic: simulationParams.traffic,
+            is_festival: simulationParams.isFestival
+        });
+        const res = await fetch(`http://localhost:8000/api/v1/simulation/demand-forecast?${queryParams}`);
+        const data = await res.json();
+        setForecastData(data.forecast);
+        sessionStorage.setItem('cachedParams', JSON.stringify(simulationParams));
+        sessionStorage.setItem('cachedForecast', JSON.stringify(data.forecast));
+    };
 
     const fetchForecast = async (force = false) => {
         const cachedParams = sessionStorage.getItem('cachedParams');
@@ -30,27 +111,7 @@ export default function ZoneIntelligence() {
             return;
         }
 
-        setLoading(true);
-        try {
-            const queryParams = new URLSearchParams({
-                target_time: simulationParams.dateTime,
-                weather: simulationParams.weather,
-                traffic: simulationParams.traffic,
-                is_festival: simulationParams.isFestival
-            });
-            const res = await fetch(`http://localhost:8000/api/v1/simulation/demand-forecast?${queryParams}`);
-            const data = await res.json();
-            
-            setForecastData(data.forecast);
-            
-            sessionStorage.setItem('cachedParams', currentParamsStr);
-            sessionStorage.setItem('cachedForecast', JSON.stringify(data.forecast));
-            
-        } catch (err) {
-            console.error("Failed to fetch forecast:", err);
-        } finally {
-            setLoading(false);
-        }
+        await executeWithLoader(FORECAST_STEPS, rawFetchForecast);
     };
 
     useEffect(() => {
@@ -87,13 +148,11 @@ export default function ZoneIntelligence() {
     };
 
 
-    if (loading || !forecastData || forecastData.length === 0) {
-        return (
-            <div className="flex-1 flex flex-col items-center justify-center min-h-screen gap-4 text-primary">
-                <Loader2 className="w-12 h-12 animate-spin" />
-                <h2 className="text-xl font-bold animate-pulse">XGBoost is computing predictions...</h2>
-            </div>
-        );
+    if (!forecastData || forecastData.length === 0) {
+        if (loading) {
+            return <TerminalLoader activeIndex={loadingStepIndex} steps={loadingSteps} />;
+        }
+        return <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">No Data Available</div>;
     }
 
     const activeZone = forecastData.find(z => z.zone_id.toString() === activeZoneId) || forecastData[0];
@@ -109,7 +168,8 @@ export default function ZoneIntelligence() {
         : peakHours.join(', ');
 
     return (
-        <div className="p-6 flex flex-col min-h-[calc(100vh-2rem)]">
+        <div className="p-6 flex flex-col min-h-[calc(100vh-2rem)] relative">
+            {loading && <TerminalLoader activeIndex={loadingStepIndex} steps={loadingSteps} />}
             
             {/* HEADER & SCENARIO STRIP */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/40 shrink-0">
@@ -240,14 +300,15 @@ export default function ZoneIntelligence() {
                                     variant="outline" 
                                     className="border-yellow-500/50 hover:bg-yellow-500/10 text-yellow-500 font-bold"
                                     onClick={async () => {
-                                        try {
+                                        const apiCall = async () => {
                                             await fetch(`http://localhost:8000/api/v1/simulation/surge-pricing`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ zone_id: activeZone.zone_id, drop_percentage: 0.15 })
                                             });
-                                            await fetchForecast(true);
-                                        } catch (err) { console.error(err); }
+                                            await rawFetchForecast();
+                                        };
+                                        await executeWithLoader(SURGE_STEPS, apiCall);
                                     }}
                                 >
                                     <TrendingUp className="w-4 h-4 mr-2" />
@@ -259,14 +320,15 @@ export default function ZoneIntelligence() {
                                     variant="outline" 
                                     className="border-green-500/50 hover:bg-green-500/10 text-green-500 font-bold"
                                     onClick={async () => {
-                                        try {
+                                        const apiCall = async () => {
                                             await fetch(`http://localhost:8000/api/v1/simulation/incentive`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ zone_id: activeZone.zone_id, riders_to_add: 15 })
                                             });
-                                            await fetchForecast(true);
-                                        } catch (err) { console.error(err); }
+                                            await rawFetchForecast();
+                                        };
+                                        await executeWithLoader(INCENTIVE_STEPS, apiCall);
                                     }}
                                 >
                                     <Users className="w-4 h-4 mr-2" />

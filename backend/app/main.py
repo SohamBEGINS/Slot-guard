@@ -19,9 +19,7 @@ async def lifespan(app: FastAPI):
     # 2. Boot up the XGBoost Singleton
     print("Initializing ML Manager...")
     ml_manager = MLManager()
-    
-    # Load the XGBoost model from MLflow (DagsHub) using the @champion alias
-    ml_manager.load_model("models:/Delivery_Slot_Model@champion")
+    # (Model loading has been moved to the /initialize route for a dramatic frontend load sequence!)
     
     yield
     print("Shutting down gracefully...")
