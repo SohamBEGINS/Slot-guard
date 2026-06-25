@@ -38,10 +38,10 @@ export default function CheckoutPage() {
                 <h1 className="text-3xl font-black tracking-tight mb-8">Secure Checkout</h1>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                    
+
                     {/* LEFT COLUMN: Delivery Details & Slots */}
                     <div className="lg:col-span-2 space-y-8">
-                        
+
                         {/* Address Selection */}
                         <div className="bg-card/40 border border-border/40 rounded-2xl p-6">
                             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -74,7 +74,7 @@ export default function CheckoutPage() {
                                 <Clock className="w-5 h-5 text-primary" />
                                 Select Delivery Slot
                             </h2>
-                            
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {activeZone?.hours.map((slot, idx) => {
                                     const status = getSlotStatus(slot.predicted_demand, activeZone.capacity);
@@ -82,7 +82,7 @@ export default function CheckoutPage() {
                                     const isUnavailable = status.label === 'Unavailable';
 
                                     return (
-                                        <div 
+                                        <div
                                             key={idx}
                                             onClick={() => !isUnavailable && setSelectedSlot(idx)}
                                             className={`relative border rounded-xl p-5 transition-all duration-200 ${status.class} ${status.border} ${isSelected ? '!border-primary ring-1 ring-primary/50 !bg-primary/5' : ''}`}
@@ -95,7 +95,7 @@ export default function CheckoutPage() {
                                                     </span>
                                                 )}
                                             </div>
-                                            
+
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-1.5">
                                                     <status.icon className={`w-4 h-4 ${status.textClass}`} />
@@ -103,14 +103,14 @@ export default function CheckoutPage() {
                                                         {status.label}
                                                     </span>
                                                 </div>
-                                                
+
                                                 {isSelected && (
                                                     <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                                                         <div className="w-2 h-2 bg-white rounded-full" />
                                                     </div>
                                                 )}
                                             </div>
-                                            
+
                                             {isUnavailable && (
                                                 <div className="absolute inset-0 bg-background/50 rounded-xl flex items-center justify-center backdrop-blur-[1px]">
                                                     <span className="bg-red-500/90 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
@@ -133,7 +133,7 @@ export default function CheckoutPage() {
                                 <ShoppingBag className="w-5 h-5 text-primary" />
                                 Order Summary
                             </h2>
-                            
+
                             <div className="space-y-4 mb-6">
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-muted-foreground font-medium">Fresh Organic Apples (x2)</span>
@@ -148,7 +148,7 @@ export default function CheckoutPage() {
                                     <span className="font-semibold">$5.99</span>
                                 </div>
                             </div>
-                            
+
                             <div className="border-t border-border/50 pt-4 space-y-3 mb-6">
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-muted-foreground">Subtotal</span>
@@ -165,20 +165,20 @@ export default function CheckoutPage() {
                                     )}
                                 </div>
                             </div>
-                            
+
                             <div className="flex justify-between items-center mb-8">
                                 <span className="font-bold text-lg">Total</span>
                                 <span className="font-black text-2xl">
-                                    {selectedSlot !== null && getSlotStatus(activeZone.hours[selectedSlot].predicted_demand, activeZone.capacity).price === '+$3.99' 
-                                        ? '$27.45' 
+                                    {selectedSlot !== null && getSlotStatus(activeZone.hours[selectedSlot].predicted_demand, activeZone.capacity).price === '+$3.99'
+                                        ? '$27.45'
                                         : '$23.46'}
                                 </span>
                             </div>
-                            
+
                             <Button className="w-full h-12 text-md font-bold rounded-xl shadow-lg shadow-primary/20" disabled={selectedSlot === null}>
                                 Place Order <ArrowRight className="w-5 h-5 ml-2" />
                             </Button>
-                            
+
                             <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground font-medium">
                                 <CreditCard className="w-4 h-4" />
                                 Secure SSL Encrypted Payment

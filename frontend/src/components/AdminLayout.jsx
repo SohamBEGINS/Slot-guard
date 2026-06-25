@@ -101,17 +101,6 @@ export default function AdminLayout() {
           {/* Divider */}
           <div className="my-4 mx-2 border-t border-border/10" />
 
-          {/* Settings / Setup */}
-          <button
-            onClick={() => setShowWarning(true)}
-            className="flex items-center rounded-xl px-3 py-3 text-sm font-bold text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all w-full text-left"
-          >
-            <Settings className="w-5 h-5 shrink-0" />
-            <span className={`ml-4 truncate transition-opacity duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>
-              Mission Setup
-            </span>
-          </button>
-
           {/* Preview Checkout */}
           <button
             onClick={() => navigate('/admin/checkout')}
@@ -120,6 +109,17 @@ export default function AdminLayout() {
             <ShoppingCart className="w-5 h-5 shrink-0" />
             <span className={`ml-4 truncate transition-opacity duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>
               Preview Checkout
+            </span>
+          </button>
+
+          {/* Settings / Setup */}
+          <button
+            onClick={() => setShowWarning(true)}
+            className="flex items-center rounded-xl px-3 py-3 text-sm font-bold text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all w-full text-left"
+          >
+            <Settings className="w-5 h-5 shrink-0" />
+            <span className={`ml-4 truncate transition-opacity duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>
+              Mission Setup
             </span>
           </button>
         </nav>
