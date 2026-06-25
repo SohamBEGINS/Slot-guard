@@ -7,11 +7,16 @@ export default function CheckoutPage() {
     const [forecastData, setForecastData] = useState([]);
     const [selectedZoneId, setSelectedZoneId] = useState("1");
     const [selectedSlot, setSelectedSlot] = useState(null);
+    const [zoneOverrides, setZoneOverrides] = useState({});
 
     useEffect(() => {
         const cached = sessionStorage.getItem('cachedForecast');
         if (cached) {
             setForecastData(JSON.parse(cached));
+        }
+        const savedOverrides = sessionStorage.getItem('zoneOverrides');
+        if (savedOverrides) {
+            setZoneOverrides(JSON.parse(savedOverrides));
         }
     }, []);
 
@@ -25,8 +30,21 @@ export default function CheckoutPage() {
 
     const activeZone = forecastData.find(z => z.zone_id.toString() === selectedZoneId);
 
-    const getSlotStatus = (predictedDemand, capacity) => {
+    const getSlotStatus = (predictedDemand, capacity, overrideStatus) => {
         const ratio = predictedDemand / capacity;
+
+        if (overrideStatus === false) {
+            return { label: 'Unavailable', price: null, class: 'opacity-50 cursor-not-allowed grayscale bg-card', border: 'border-border', icon: ShieldAlert, textClass: 'text-red-500' };
+        }
+        
+        if (overrideStatus === true) {
+            if (ratio > 1.0) {
+                // Admin forced it open, but ML predicts it's over capacity
+                return { label: 'Delay Expected', price: null, class: 'hover:border-orange-500/50 hover:bg-orange-500/5 cursor-pointer bg-card', border: 'border-orange-500/50', icon: ShieldAlert, textClass: 'text-orange-500', warningMsg: 'High volume. Expect 15-30m delays.' };
+            }
+            return { label: 'Available', price: 'Free', class: 'hover:border-green-500/50 hover:bg-green-500/5 cursor-pointer bg-card', border: 'border-green-500/30', icon: Clock, textClass: 'text-green-500' };
+        }
+        
         if (ratio > 1.0) return { label: 'Unavailable', price: null, class: 'opacity-50 cursor-not-allowed grayscale bg-card', border: 'border-border', icon: ShieldAlert, textClass: 'text-red-500' };
         if (ratio > 0.80) return { label: 'Fast Filling', price: '+$3.99', class: 'hover:border-yellow-500/50 hover:bg-yellow-500/5 cursor-pointer bg-card', border: 'border-yellow-500/30', icon: Zap, textClass: 'text-yellow-500' };
         return { label: 'Available', price: 'Free', class: 'hover:border-green-500/50 hover:bg-green-500/5 cursor-pointer bg-card', border: 'border-green-500/30', icon: Clock, textClass: 'text-green-500' };
@@ -77,7 +95,8 @@ export default function CheckoutPage() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {activeZone?.hours.map((slot, idx) => {
-                                    const status = getSlotStatus(slot.predicted_demand, activeZone.capacity);
+                                    const slotKey = `${activeZone.zone_id}-${slot.hour}:00 - ${slot.hour + 1}:00`;
+                                    const status = getSlotStatus(slot.predicted_demand, activeZone.capacity, zoneOverrides[slotKey]);
                                     const isSelected = selectedSlot === idx;
                                     const isUnavailable = status.label === 'Unavailable';
 
@@ -97,11 +116,18 @@ export default function CheckoutPage() {
                                             </div>
 
                                             <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-1.5">
-                                                    <status.icon className={`w-4 h-4 ${status.textClass}`} />
-                                                    <span className={`text-sm font-semibold tracking-wide ${status.textClass}`}>
-                                                        {status.label}
-                                                    </span>
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <status.icon className={`w-4 h-4 ${status.textClass}`} />
+                                                        <span className={`text-sm font-semibold tracking-wide ${status.textClass}`}>
+                                                            {status.label}
+                                                        </span>
+                                                    </div>
+                                                    {status.warningMsg && (
+                                                        <span className="text-xs font-semibold text-orange-500/80 mt-1">
+                                                            {status.warningMsg}
+                                                        </span>
+                                                    )}
                                                 </div>
 
                                                 {isSelected && (

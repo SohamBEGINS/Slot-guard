@@ -43,7 +43,10 @@ export default function ZoneIntelligence() {
     const [forecastData, setForecastData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeZoneId, setActiveZoneId] = useState("1");
-    const [overrides, setOverrides] = useState({}); // { "zoneId-slot": isOpen (boolean) }
+    const [overrides, setOverrides] = useState(() => {
+        const saved = sessionStorage.getItem('zoneOverrides');
+        return saved ? JSON.parse(saved) : {};
+    }); // { "zoneId-slot": isOpen (boolean) }
 
     const [loadingSteps, setLoadingSteps] = useState(FORECAST_STEPS);
     const [loadingStepIndex, setLoadingStepIndex] = useState(0);
@@ -126,10 +129,11 @@ export default function ZoneIntelligence() {
 
     const handleToggleOverride = (zoneId, slot, currentIsOpen) => {
         const key = `${zoneId}-${slot}`;
-        setOverrides(prev => ({
-            ...prev,
-            [key]: !currentIsOpen
-        }));
+        setOverrides(prev => {
+            const nextState = { ...prev, [key]: !currentIsOpen };
+            sessionStorage.setItem('zoneOverrides', JSON.stringify(nextState));
+            return nextState;
+        });
     };
 
     const getChartStatusColor = (status) => {
