@@ -1,62 +1,59 @@
-from sqlalchemy import Column, String, Boolean, Integer, Float, DateTime, ForeignKey
+from sqlalchemy import Column, String, Boolean, Integer, Float, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import declarative_base
+import uuid
+from datetime import datetime
 
 Base = declarative_base()
 
-# Schema to track local fulfillment areas
-class Region(Base):
-    __tablename__ = "regions"
+class SimulationRun(Base):
+    __tablename__ = "simulation_runs"
 
-    zone_id = Column(Integer, primary_key=True, index=True)
-    zone_name  = Column(String)
-    is_active = Column(Boolean, default=True)
+    run_id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    run_name = Column(String)
+    status = Column(String, default="ACTIVE") # 'ACTIVE' or 'ARCHIVED'
+    config = Column(JSON) # Stores weather, traffic, fleet_deployment_pct, etc.
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class Rider(Base):
+    __tablename__ = "riders"
+
+    rider_id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String)
+    phone = Column(String)
+    skill_tier = Column(String) # 'EXPERT', 'STANDARD', 'TRAINEE'
+    home_zone_id = Column(Integer) # Starting zone, 1-8
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class RiderState(Base):
+    __tablename__ = "rider_states"
     
-    # MODIFIED: Renamed to represent the target ops goal, not the live limit
-    base_fleet_capacity = Column(Integer) 
-    
-    # NEW: Admin integer adjustment (e.g., +10 to receive riders, -10 if sending riders away)
-    manual_rider_adjustment = Column(Integer, default=0) 
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    run_id = Column(String, ForeignKey("simulation_runs.run_id"))
+    rider_id = Column(String, ForeignKey("riders.rider_id"))
+    current_zone_id = Column(Integer)
+    status = Column(String) # 'INACTIVE' or 'ONLINE'
+    last_ping = Column(DateTime, default=datetime.utcnow)
 
-
-# NEW TABLE: Tracks the live physical supply of delivery drivers
-class ActiveRider(Base):
-    __tablename__ = "active_riders"
-    
-    rider_id = Column(String, primary_key=True, index=True)
-    current_zone_id = Column(Integer, ForeignKey("regions.zone_id"))
-    status = Column(String) # e.g., "ONLINE", "OFFLINE", "ON_DELIVERY"
-    last_ping = Column(DateTime) # Tracks when they last checked in to drop idle riders
-
-# This allows the admin to configure the available fixed time windows per region
-class PlatformConfig(Base):
-    __tablename__ = "platform_config"
-    
-    config_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    zone_id = Column(Integer, ForeignKey("regions.zone_id"))
-    slot_start = Column(String) # e.g., "09:00"
-    slot_end = Column(String)   # e.g., "10:00"
-    is_closed = Column(Boolean, default=False) # For the Admin 'Force Close' button
-
-# The raw transaction log (used later for continuous MLOps retraining)
 class Order(Base):
     __tablename__ = "orders"
     
-    order_id = Column(String, primary_key=True, index=True)
+    order_id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    run_id = Column(String, ForeignKey("simulation_runs.run_id"))
     timestamp = Column(DateTime)
-    zone_id = Column(Integer, ForeignKey("regions.zone_id"))
+    zone_id = Column(Integer)
     chosen_slot = Column(String)
-    status = Column(String) # e.g., "Pending", "Delivered", "Delayed"
+    status = Column(String, default="Pending") # 'Pending', 'SURGE_PRICED', 'RESCHEDULED_INCENTIVE'
+    surge_fee = Column(Float, default=0.0) # Tracks the extra revenue applied
 
-# High-velocity table your ML model uses to track current loads and make predictions
 class SlotDemand(Base):
     __tablename__ = "slot_demand"
     
     demand_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    date = Column(String) # e.g., "2024-10-25"
-    zone_id = Column(Integer, ForeignKey("regions.zone_id"))
-    
-    # MODIFIED: Storing the raw integer makes extracting 'Hour_Sin' instantly fast for XGBoost
-    target_hour = Column(Integer) # e.g., 9 
-    slot_window = Column(String) # e.g., "09:00-10:00" (Kept for UI display purposes)
-    
-    current_load = Column(Integer, default=0) # Tally of currently accepted orders for this slot
+    run_id = Column(String, ForeignKey("simulation_runs.run_id"))
+    date = Column(String) 
+    zone_id = Column(Integer)
+    target_hour = Column(Integer) 
+    slot_window = Column(String) 
+    current_load = Column(Integer, default=0)
+    surge_fee_active = Column(Boolean, default=False)
+    surge_fee_amount = Column(Float, default=0.0)

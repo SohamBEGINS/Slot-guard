@@ -31,11 +31,13 @@ def initialize_simulation(req: SimulationInitRequest, db: Session = Depends(get_
     """
 
     # 1. Wipe old simulation state
+    # Do not delete the previous values
     db.query(Order).delete()
     db.query(ActiveRider).delete()
     db.query(SlotDemand).delete()
     db.flush()
 
+    # Will delete the Region Table
     # 2. Ensure 8 Region rows exist (idempotent)
     for z in ZONES:
         exists = db.query(Region).filter(Region.zone_id == z).first()
@@ -43,12 +45,12 @@ def initialize_simulation(req: SimulationInitRequest, db: Session = Depends(get_
             db.add(Region(
                 zone_id=z,
                 zone_name=f"Zone {z}",
-                base_fleet_capacity=25,
-                manual_rider_adjustment=0
             ))
     db.flush()
 
     # 3. Distribute fleet evenly across zones
+    # status = 'online' --> 'offline' : riders should be registered beforehand , Rider Table 
+    # Riders page , find out the riders , send good riders to the congested region
     riders_per_zone = req.fleet_size // len(ZONES)
     for z in ZONES:
         for _ in range(riders_per_zone):
@@ -90,6 +92,7 @@ def initialize_simulation(req: SimulationInitRequest, db: Session = Depends(get_
     ml_manager = MLManager()
     ml_manager.load_model("models:/Delivery_Slot_Model@champion")
 
+    # handle the race condition
     db.commit()
 
     return {
@@ -135,7 +138,7 @@ async def get_demand_forecast(
     db: Session = Depends(get_db)
 ):
     """
-    Runs the XGBoost model 48 times (8 zones x 6 hours) to generate the Admin Dashboard Chart.
+    Runs the XGBoost model 32 times (8 zones x 4 hours) to generate the Admin Dashboard Chart.
     """
     facade = SlotAvailabilityFacade(db)
     
@@ -253,6 +256,7 @@ class IncentiveRequest(BaseModel):
 @router.post("/incentive")
 def apply_rider_incentive(req: IncentiveRequest, db: Session = Depends(get_db)):
     """Simulates a Rider Bonus by permanently adding new active riders to the zone."""
+    ## Mark online --> offline
     for _ in range(req.riders_to_add):
         db.add(ActiveRider(
             rider_id=str(uuid.uuid4()),
@@ -270,6 +274,7 @@ class SurgeRequest(BaseModel):
 @router.post("/surge-pricing")
 def apply_surge_pricing(req: SurgeRequest, db: Session = Depends(get_db)):
     """Simulates Demand Suppression by dropping a percentage of pending orders."""
+    # Orders active inactive
     orders = db.query(Order).filter_by(zone_id=req.zone_id, status="Pending").all()
     drop_count = int(len(orders) * req.drop_percentage)
     

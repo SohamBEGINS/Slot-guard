@@ -10,9 +10,11 @@ class MLManager:
     """
     _instance = None
     _is_loaded = False
-    
+
+    # Modify this apply locking 
     def __new__(cls):
         if cls._instance is None:
+
             cls._instance = super(MLManager, cls).__new__(cls)
             # Create a dedicated CPU ThreadPool for XGBoost math to bypass the Python GIL
             cls._instance.thread_pool = ThreadPoolExecutor(max_workers=4)
