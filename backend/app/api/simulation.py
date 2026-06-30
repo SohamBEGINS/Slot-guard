@@ -30,6 +30,7 @@ def initialize_simulation(req: SimulationInitRequest, db: Session = Depends(get_
         config=req.model_dump()
     )
     db.add(sim_run)
+    db.commit()
 
     # 2. Deploy Riders based on percentage
     permanent_riders = db.query(Rider).all()
