@@ -32,23 +32,42 @@ class DatasetManager:
 
         print("Fetching dataset from DagsHub S3 storage...")
 
-        token = os.environ.get("MLFLOW_TRACKING_PASSWORD")
+        token = os.environ.get("DAGSHUB_PAT") or os.environ.get("MLFLOW_TRACKING_PASSWORD")
         
-        # Use DagsHub's official filesystem client to reliably fetch the dataset
-        import dagshub.auth
-        from dagshub.streaming import DagsHubFilesystem
-        
-        dagshub.auth.add_app_token(token)
-        fs = DagsHubFilesystem(project_root=".", repo_url="https://dagshub.com/SohamBEGINS/Slot-guard")
-        
-        with fs.open("s3:/Slot-guard/final_ml_dataset2.csv", "rb") as f:
-            df = pd.read_csv(f)
+        if not token:
+            print("WARNING: No DagsHub token found in environment. Dataset load will fail.")
+            DatasetManager._df = pd.DataFrame(columns=["Order_Date", "zone_id", "Weather", "Traffic", "Is_Weekend", "Is_Festival", "Current_Load", "Hour"])
+            return
 
-        # Extract Hour from Order_Date once at load time — reused in every query
-        df["Hour"] = pd.to_datetime(df["Order_Date"]).dt.hour
+        token = token.strip()
 
-        DatasetManager._df = df
-        print(f"Dataset loaded successfully. Shape: {DatasetManager._df.shape}")
+        # We must have this dataset. If DagsHub has a network hiccup, we retry up to 3 times.
+        import time
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                import dagshub.auth
+                from dagshub.streaming import DagsHubFilesystem
+                
+                dagshub.auth.add_app_token(token)
+                fs = DagsHubFilesystem(project_root=".", repo_url="https://dagshub.com/SohamBEGINS/Slot-guard")
+                
+                with fs.open("s3:/Slot-guard/final_ml_dataset2.csv", "rb") as f:
+                    df = pd.read_csv(f)
+
+                df["Hour"] = pd.to_datetime(df["Order_Date"]).dt.hour
+                DatasetManager._df = df
+                print(f"Dataset loaded successfully. Shape: {DatasetManager._df.shape}")
+                return # Success, exit the retry loop
+
+            except Exception as e:
+                print(f"WARNING: Failed to fetch dataset from DagsHub (Attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2) # Wait 2 seconds before retrying
+                else:
+                    # If we exhausted all retries, crash the server immediately (Fail-Fast)
+                    print("CRITICAL ERROR: Could not load the required dataset. Server cannot start.")
+                    raise RuntimeError("Failed to load ML dataset from DagsHub after 3 attempts.") from e
 
     def get_committed_load_per_zone(
         self,
