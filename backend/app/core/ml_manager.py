@@ -1,44 +1,50 @@
 import mlflow
 import pandas as pd
 import asyncio
+import threading
 from concurrent.futures import ThreadPoolExecutor
+
 
 class MLManager:
     """
-    Singleton Class to guarantee the heavy XGBoost model is loaded into RAM
-    exactly ONCE per server boot, saving massive amounts of memory.
+    Thread-safe Singleton. The heavy XGBoost model is loaded into RAM
+    exactly ONCE per server boot. Double-checked locking prevents
+    race conditions during initialization.
     """
     _instance = None
+    _lock = threading.Lock()
     _is_loaded = False
 
-    # Modify this apply locking 
     def __new__(cls):
         if cls._instance is None:
-
-            cls._instance = super(MLManager, cls).__new__(cls)
-            # Create a dedicated CPU ThreadPool for XGBoost math to bypass the Python GIL
-            cls._instance.thread_pool = ThreadPoolExecutor(max_workers=4)
+            with cls._lock:
+                # Double-check: another thread may have created it while we waited
+                if cls._instance is None:
+                    cls._instance = super(MLManager, cls).__new__(cls)
+                    cls._instance.thread_pool = ThreadPoolExecutor(max_workers=4)
         return cls._instance
 
     def load_model(self, model_uri: str = "models:/Delivery_Slot_Model@champion"):
         """
-        Loads the model directly from the MLflow registry using the @champion alias!
+        Loads the model from MLflow registry. Double-checked locking ensures
+        this runs exactly once even under concurrent access.
         """
         if not self._is_loaded:
-            print(f"Loading XGBoost model from MLflow: {model_uri}")
-            
-            import os
-            import warnings
-            
-            # Suppress MLflow dependency warnings
-            os.environ["MLFLOW_DISABLE_ENV_CREATION"] = "1"
-            warnings.filterwarnings("ignore", module="mlflow")
-            
-            mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "https://dagshub.com/SohamBEGINS/Slot-guard.mlflow").strip())
-            
-            self.model = mlflow.pyfunc.load_model(model_uri, suppress_warnings=True)
-            self._is_loaded = True
-            print("Model successfully loaded into server RAM!")
+            with self._lock:
+                if not self._is_loaded:
+                    print(f"Loading XGBoost model from MLflow: {model_uri}")
+
+                    import os
+                    import warnings
+
+                    os.environ["MLFLOW_DISABLE_ENV_CREATION"] = "1"
+                    warnings.filterwarnings("ignore", module="mlflow")
+
+                    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "https://dagshub.com/SohamBEGINS/Slot-guard.mlflow").strip())
+
+                    self.model = mlflow.pyfunc.load_model(model_uri, suppress_warnings=True)
+                    self._is_loaded = True
+                    print("Model successfully loaded into server RAM!")
 
     async def predict_async(self, features: dict) -> float:
         """
@@ -47,17 +53,17 @@ class MLManager:
         """
         if not self._is_loaded:
             raise RuntimeError("Model is not loaded. Call load_model() on server startup.")
-            
+
         # Convert dictionary to Pandas DataFrame (required by MLflow pyfunc models)
         df = pd.DataFrame([features])
-        
+
         # Run the heavy, blocking math operation in our ThreadPool
         loop = asyncio.get_running_loop()
         prediction = await loop.run_in_executor(
-            self.thread_pool, 
-            self.model.predict, 
+            self.thread_pool,
+            self.model.predict,
             df
         )
-        
+
         # XGBoost returns an array of predictions, we just want the single value
         return float(prediction[0])

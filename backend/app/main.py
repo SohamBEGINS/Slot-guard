@@ -1,13 +1,17 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-# from app.api.simulation import router as simulation_router
-# from app.api.routes import router as checkout_router
+from app.api.simulation import router as simulation_router
+from app.api.zone_status import router as zone_status_router
+from app.api.admin_action import router as admin_action_router
+from app.api.routes import router as checkout_router
 from app.core.ml_manager import MLManager
 from app.db.database import engine, SessionLocal
 from app.db.models import Base, Rider
 from fastapi.middleware.cors import CORSMiddleware
 import uuid
 import random
+from app.core.dataset_manager import DatasetManager
+from dotenv import load_dotenv
 
 def seed_asymmetric_riders():
     """Seeds the permanent workforce if the DB is empty."""
@@ -51,23 +55,28 @@ def seed_asymmetric_riders():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from dotenv import load_dotenv
     load_dotenv()
 
-    # 1. Generate the PostgreSQL Tables in Supabase automatically!
+    # 1. Create DB tables
     print("Creating Database Tables in Supabase...")
     Base.metadata.create_all(bind=engine)
-    
+
     # 2. Seed the permanent workforce
     seed_asymmetric_riders()
-    
-    # 3. Boot up the XGBoost Singleton
+
+    # 3. Load dataset from DagsHub S3 into memory
+    dataset_manager = DatasetManager()
+    dataset_manager.load_dataset()
+
+    # 4. Boot up the XGBoost Singleton and load model into RAM
     print("Initializing ML Manager...")
     ml_manager = MLManager()
-    # (Model loading has been moved to the /initialize route for a dramatic frontend load sequence!)
-    
+    ml_manager.load_model("models:/Delivery_Slot_Model@champion")
+
+
     yield
     print("Shutting down gracefully...")
+
 
 # Initialize the FastAPI application
 app = FastAPI(
@@ -86,8 +95,10 @@ app.add_middleware(
 )
 
 # Attach our routes
-# app.include_router(checkout_router, prefix="/api/v1/checkout", tags=["Checkout"])
-# app.include_router(simulation_router, prefix="/api/v1/simulation", tags=["Simulation"])
+app.include_router(checkout_router, prefix="/api/v1/checkout", tags=["Checkout"])
+app.include_router(simulation_router, prefix="/api/v1/simulation", tags=["Simulation"])
+app.include_router(zone_status_router, prefix="/api/v1/simulation", tags=["Zone Status"])
+app.include_router(admin_action_router, prefix="/api/v1/simulation", tags=["Admin Actions"])
 
 @app.get("/")
 def health_check():
