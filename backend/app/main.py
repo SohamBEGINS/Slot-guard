@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.api.simulation import router as simulation_router
-from app.api.routes import router as checkout_router
+# from app.api.simulation import router as simulation_router
+# from app.api.routes import router as checkout_router
 from app.core.ml_manager import MLManager
 from app.db.database import engine, SessionLocal
 from app.db.models import Base, Rider
