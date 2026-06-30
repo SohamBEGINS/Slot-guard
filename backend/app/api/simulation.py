@@ -27,7 +27,7 @@ def initialize_simulation(req: SimulationInitRequest, db: Session = Depends(get_
     sim_run = SimulationRun(
         run_id=run_id,
         run_name=req.run_name,
-        config=req.model_dump()
+        config=req.model_dump(mode="json")
     )
     db.add(sim_run)
     db.commit()
