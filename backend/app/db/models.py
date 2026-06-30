@@ -12,6 +12,7 @@ class SimulationRun(Base):
     run_name = Column(String)
     status = Column(String, default="ACTIVE") # 'ACTIVE' or 'ARCHIVED'
     config = Column(JSON) # Stores weather, traffic, fleet_deployment_pct, etc.
+    created_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class Rider(Base):

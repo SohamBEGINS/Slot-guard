@@ -27,7 +27,8 @@ def initialize_simulation(req: SimulationInitRequest, db: Session = Depends(get_
     sim_run = SimulationRun(
         run_id=run_id,
         run_name=req.run_name,
-        config=req.model_dump(mode="json")
+        config=req.model_dump(mode="json"),
+        created_by=req.created_by
     )
     db.add(sim_run)
     db.commit()
@@ -110,3 +111,11 @@ def initialize_simulation(req: SimulationInitRequest, db: Session = Depends(get_
         "riders_online": total_online,
         "orders_injected": total_orders
     }
+
+@router.get("/runs")
+def get_simulation_runs(username: str, db: Session = Depends(get_db)):
+    """
+    Fetches all past simulation runs for a specific user.
+    """
+    runs = db.query(SimulationRun).filter(SimulationRun.created_by == username).order_by(SimulationRun.created_at.desc()).all()
+    return {"runs": runs}
