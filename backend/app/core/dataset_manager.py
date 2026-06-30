@@ -32,18 +32,17 @@ class DatasetManager:
 
         print("Fetching dataset from DagsHub S3 storage...")
 
-        username = os.environ.get("MLFLOW_TRACKING_USERNAME")
-        password = os.environ.get("MLFLOW_TRACKING_PASSWORD")
-
-        s3 = boto3.client(
-            "s3",
-            endpoint_url="https://dagshub.com/SohamBEGINS/Slot-guard.s3",
-            aws_access_key_id=username,
-            aws_secret_access_key=password,
-        )
-
-        response = s3.get_object(Bucket="dvc", Key="final_ml_dataset2.csv")
-        df = pd.read_csv(io.BytesIO(response["Body"].read()))
+        token = os.environ.get("MLFLOW_TRACKING_PASSWORD")
+        
+        # Use DagsHub's official filesystem client to reliably fetch the dataset
+        import dagshub.auth
+        from dagshub.streaming import DagsHubFilesystem
+        
+        dagshub.auth.add_app_token(token)
+        fs = DagsHubFilesystem(project_root=".", repo_url="https://dagshub.com/SohamBEGINS/Slot-guard")
+        
+        with fs.open("s3:/Slot-guard/final_ml_dataset2.csv", "rb") as f:
+            df = pd.read_csv(f)
 
         # Extract Hour from Order_Date once at load time — reused in every query
         df["Hour"] = pd.to_datetime(df["Order_Date"]).dt.hour
