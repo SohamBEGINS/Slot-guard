@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Rocket, CloudRain, Calendar, PartyPopper, Car, Users, ShoppingBag, Clock } from "lucide-react";
+import { Rocket, CloudRain, Calendar, PartyPopper, Car, Users, ArrowLeft, Tag } from "lucide-react";
 import TerminalLoader from "../components/TerminalLoader";
 
 // Adjust path if logo is elsewhere
@@ -22,12 +21,13 @@ export default function SetupPage() {
     const localIsoString = new Date(defaultDate.getTime() - (defaultDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
 
     const [simulationParams, setSimulationParams] = useState({
+        runName: "",
         dateTime: localIsoString,
         weather: "CLEAR",
         traffic: "LOW",
         isFestival: false,
-        fleetSize: 200,
-        initialOrders: 200,
+        fleetDeploymentPct: 75,
+        totalOrders: 1000,
     });
     
     const [isLaunching, setIsLaunching] = useState(false);
@@ -40,15 +40,15 @@ export default function SetupPage() {
         setLoadingStep(0); // Wiping active simulation states...
 
         try {
-            await new Promise(r => setTimeout(r, 600));
-
             const payload = {
-                target_time: new Date(simulationParams.dateTime).toISOString(),
+                run_name: simulationParams.runName.trim() || `Simulation - ${new Date().toLocaleDateString()}`,
+                target_time: simulationParams.dateTime,
                 weather: simulationParams.weather,
                 traffic: simulationParams.traffic,
                 is_festival: simulationParams.isFestival,
-                fleet_size: simulationParams.fleetSize,
-                initial_orders: simulationParams.initialOrders,
+                fleet_deployment_pct: simulationParams.fleetDeploymentPct / 100.0,
+                total_orders_to_inject: simulationParams.totalOrders,
+                created_by: sessionStorage.getItem('username') || 'Unknown',
             };
 
             setLoadingStep(1); // Redistributing riders...
@@ -61,14 +61,14 @@ export default function SetupPage() {
             });
             
             if (!response.ok) throw new Error(`API returned ${response.status}`);
+            const data = await response.json();
 
             setLoadingStep(4); // Downloading dependencies...
-            await new Promise(r => setTimeout(r, 800));
-
             setLoadingStep(6); // Activating endpoints...
             
             try {
                 sessionStorage.setItem('simulationParams', JSON.stringify(simulationParams));
+                sessionStorage.setItem('active_run_id', data.run_id);
             } catch (e) {
                 console.warn("Could not save to sessionStorage", e);
             }
@@ -87,6 +87,14 @@ export default function SetupPage() {
             {/* CYBER BACKGROUND */}
             <div className="absolute inset-0 cyber-pattern z-0 opacity-80" />
             <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/80 z-0 pointer-events-none" />
+
+            <Button 
+                variant="ghost" 
+                className="absolute top-6 left-6 z-50 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 font-medium tracking-wide"
+                onClick={() => navigate('/')}
+            >
+                <ArrowLeft className="w-5 h-5 mr-2" /> Return to Hub
+            </Button>
 
             {/* Terminal Loader Overlay */}
             {isLaunching && <TerminalLoader activeIndex={loadingStep} />}
@@ -149,6 +157,28 @@ export default function SetupPage() {
                         {/* CARD CONTENT - LIST STYLE */}
                         <div className="flex flex-col divide-y divide-white/5">
 
+                            {/* ROW 0: Simulation Name */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors">
+                                        <Tag className="w-5 h-5 text-gray-300" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">Simulation Name</h3>
+                                        <p className="text-xs text-gray-500 mt-1">Optional. Defaults to current date.</p>
+                                    </div>
+                                </div>
+                                <div className="w-full sm:w-64">
+                                    <Input
+                                        type="text"
+                                        placeholder="e.g., Diwali Peak Test"
+                                        value={simulationParams.runName}
+                                        onChange={(e) => setSimulationParams({ ...simulationParams, runName: e.target.value })}
+                                        className="bg-black/50 border-white/10 focus-visible:ring-emerald-500 text-gray-200 h-11 px-4 shadow-inner"
+                                    />
+                                </div>
+                            </div>
+
                             {/* ROW 1: Target Time */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
                                 <div className="flex items-center gap-4">
@@ -170,46 +200,50 @@ export default function SetupPage() {
                                 </div>
                             </div>
 
-                            {/* ROW 2: Active Fleet Size */}
+                            {/* ROW 2: Fleet Deployment Ratio */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
                                 <div className="flex items-center gap-4">
                                     <div className="p-2.5 bg-white/5 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors">
                                         <Users className="w-5 h-5 text-gray-300" />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">Active Fleet Size</h3>
-                                        <p className="text-xs text-gray-500 mt-1">Total active riders deployed city-wide.</p>
+                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">Fleet Deployment Ratio</h3>
+                                        <p className="text-xs text-gray-500 mt-1">Percentage of total registered riders to bring ONLINE (50% - 100%).</p>
                                     </div>
                                 </div>
-                                <div className="w-full sm:w-64">
-                                    <Input
-                                        type="number"
-                                        min="50" max="1000" step="10"
-                                        value={simulationParams.fleetSize}
-                                        onChange={(e) => setSimulationParams({ ...simulationParams, fleetSize: parseInt(e.target.value) || 0 })}
-                                        className="bg-black/50 border-white/10 focus-visible:ring-primary text-gray-200 h-11 px-4 font-mono text-lg shadow-inner"
+                                <div className="w-full sm:w-64 flex items-center gap-3">
+                                    <input 
+                                        type="range" 
+                                        min="50" 
+                                        max="100" 
+                                        step="5"
+                                        value={simulationParams.fleetDeploymentPct}
+                                        onChange={(e) => setSimulationParams({ ...simulationParams, fleetDeploymentPct: parseInt(e.target.value) })}
+                                        className="w-full accent-emerald-500"
                                     />
+                                    <span className="text-emerald-400 font-mono font-bold w-12 text-right">{simulationParams.fleetDeploymentPct}%</span>
                                 </div>
                             </div>
 
-                            {/* ROW 3: Initial Orders */}
+                            {/* ROW 3: Total Orders to Inject */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-transparent hover:bg-white/[0.02] transition-colors gap-4 group">
                                 <div className="flex items-center gap-4">
                                     <div className="p-2.5 bg-white/5 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors">
-                                        <ShoppingBag className="w-5 h-5 text-gray-300" />
+                                        <Tag className="w-5 h-5 text-gray-300" />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">Initial City Orders</h3>
-                                        <p className="text-xs text-gray-500 mt-1">Base level of orders to inject.</p>
+                                        <h3 className="text-sm font-bold text-gray-200 tracking-wider">Total Advance Orders</h3>
+                                        <p className="text-xs text-gray-500 mt-1">Pool of orders randomly distributed across 8 zones.</p>
                                     </div>
                                 </div>
                                 <div className="w-full sm:w-64">
                                     <Input
                                         type="number"
-                                        min="50" max="1000" step="10"
-                                        value={simulationParams.initialOrders}
-                                        onChange={(e) => setSimulationParams({ ...simulationParams, initialOrders: parseInt(e.target.value) || 0 })}
-                                        className="bg-black/50 border-white/10 focus-visible:ring-primary text-gray-200 h-11 px-4 font-mono text-lg shadow-inner"
+                                        min="100"
+                                        max="10000"
+                                        value={simulationParams.totalOrders}
+                                        onChange={(e) => setSimulationParams({ ...simulationParams, totalOrders: parseInt(e.target.value) || 0 })}
+                                        className="bg-black/50 border-white/10 focus-visible:ring-emerald-500 text-gray-200 h-11 px-4 shadow-inner"
                                     />
                                 </div>
                             </div>
@@ -292,7 +326,7 @@ export default function SetupPage() {
                             <Button
                                 onClick={handleLaunch}
                                 disabled={isLaunching}
-                                className="w-full h-14 text-sm font-mono tracking-[0.2em] uppercase transition-all bg-black/40 hover:bg-emerald-950/40 text-emerald-400 rounded-lg border border-emerald-500/30 hover:border-emerald-400 backdrop-blur-sm"
+                                className="w-full h-14 text-sm font-mono tracking-[0.2em] uppercase transition-all bg-transparent hover:bg-emerald-950/40 text-emerald-400 rounded-lg border border-emerald-500/30 hover:border-emerald-400 backdrop-blur-sm"
                             >
                                 {isLaunching ? 'SYSTEM.INITIALIZING...' : '>_ INITIALIZE_SIMULATION'}
                                 <Rocket className={`w-4 h-4 ml-3 ${isLaunching ? 'animate-spin' : ''}`} />

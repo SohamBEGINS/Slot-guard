@@ -52,6 +52,7 @@ async def get_demand_forecast(
 ):
     """
     Runs the XGBoost model 32 times (8 zones x 4 hours) to generate the Admin Dashboard Chart.
+    Applies context-aware advance-booking decay so future slots realistically taper off.
     """
     facade = SlotAvailabilityFacade(db)
     
@@ -84,12 +85,13 @@ async def get_demand_forecast(
 
         # 2. Loop through the next 4 hours and predict
         for i in range(4):
+            # Use timedelta to correctly wrap around midnight (0-23 hours, next day date)
             future_time = target_time + timedelta(hours=i)
             target_hour = future_time.hour
             is_weekend = 1 if future_time.weekday() >= 5 else 0
             
             # Fetch the actual committed load we injected during /initialize
-            date_str = target_time.strftime("%Y-%m-%d")
+            date_str = future_time.strftime("%Y-%m-%d")
             load_record = db.query(SlotDemand).filter(
                 SlotDemand.run_id == run_id,
                 SlotDemand.zone_id == zone_id,
@@ -99,7 +101,7 @@ async def get_demand_forecast(
             
             current_load = load_record.current_load if load_record else 0
 
-            # Prepare Features for XGBoost (Matching the new Pipeline schema EXACTLY in order!)
+            # Prepare Features for XGBoost
             from app.core.strategy import WeatherCondition
             ml_features = {
                 "zone_id": zone_id,
@@ -123,14 +125,62 @@ async def get_demand_forecast(
             elif predicted_demand > (max_capacity * 0.8):
                 status = "RISK"
 
+            # ML Binary Search Solver for exact true headroom and true excess
+            true_headroom = 0
+            true_excess = 0
+            
+            if predicted_demand < max_capacity:
+                low = 0
+                high = max_capacity
+                best = 0
+                
+                # We do a rapid binary search up to max_capacity to find the absolute ceiling
+                while low <= high:
+                    mid = (low + high) // 2
+                    test_features = ml_features.copy()
+                    test_features["Current_Load"] = current_load + mid
+                    
+                    test_pred = await ml_manager.predict_async(test_features)
+                    
+                    if test_pred <= max_capacity:
+                        best = mid
+                        low = mid + 1
+                    else:
+                        high = mid - 1
+                        
+                true_headroom = best
+            else:
+                # Reverse Binary Search to find the exact offload required
+                low = 0
+                high = current_load
+                best_allowed_load = 0
+                
+                while low <= high:
+                    mid = (low + high) // 2
+                    test_features = ml_features.copy()
+                    test_features["Current_Load"] = mid
+                    
+                    test_pred = await ml_manager.predict_async(test_features)
+                    
+                    if test_pred <= max_capacity:
+                        best_allowed_load = mid
+                        low = mid + 1  # We can safely allow more load
+                    else:
+                        high = mid - 1 # Too high, need to test less load
+                        
+                true_excess = current_load - best_allowed_load
+
             zone_data["hours"].append({
                 "hour": target_hour,
-                "slot": f"{target_hour}:00 - {target_hour + 1}:00",
+                "slot": f"{target_hour:02d}:00 - {(target_hour + 1) % 24:02d}:00",
                 "predicted_demand": predicted_demand,
                 "current_load": current_load,
-                "status": status
+                "status": status,
+                "true_headroom": true_headroom,
+                "true_excess": true_excess
             })
 
         forecast_results.append(zone_data)
 
     return {"forecast": forecast_results}
+

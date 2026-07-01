@@ -31,7 +31,9 @@ export default function AdminLayout() {
   const navigate = useNavigate();
 
   const executeReset = () => {
-    sessionStorage.clear(); // Wipe the cached state to guarantee a fresh start
+    const username = sessionStorage.getItem('username');
+    sessionStorage.clear();
+    if (username) sessionStorage.setItem('username', username);
     navigate('/');
   };
 
@@ -41,19 +43,19 @@ export default function AdminLayout() {
       {showWarning && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-card border border-border/50 shadow-2xl rounded-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
-            <h2 className="text-xl font-black text-red-500 mb-3 flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Reset Control Center?
+            <h2 className="text-xl font-black text-blue-500 mb-3 flex items-center gap-2">
+              <Rocket className="w-5 h-5" />
+              Return to Command Hub?
             </h2>
             <p className="text-muted-foreground text-sm font-medium leading-relaxed mb-8">
-              Leaving the dashboard will drop your current simulation session. You will need to reconfigure the parameters and launch a new simulation from scratch. Are you sure you want to proceed?
+              Leaving the dashboard will pause your current session. You can always resume this simulation later from the Operation History in the Command Hub. Do you want to return to the Hub?
             </p>
             <div className="flex gap-3 justify-end">
               <Button variant="ghost" className="font-bold" onClick={() => setShowWarning(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" className="font-bold" onClick={executeReset}>
-                Yes, Reset Session
+              <Button variant="default" className="font-bold bg-blue-600 hover:bg-blue-700" onClick={executeReset}>
+                Yes, Return to Hub
               </Button>
             </div>
           </div>
@@ -117,9 +119,9 @@ export default function AdminLayout() {
             onClick={() => setShowWarning(true)}
             className="flex items-center rounded-xl px-3 py-3 text-sm font-bold text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all w-full text-left"
           >
-            <Settings className="w-5 h-5 shrink-0" />
+            <Rocket className="w-5 h-5 shrink-0" />
             <span className={`ml-4 truncate transition-opacity duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>
-              Mission Setup
+              Command Hub
             </span>
           </button>
         </nav>

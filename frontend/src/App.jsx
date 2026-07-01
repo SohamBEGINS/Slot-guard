@@ -5,12 +5,15 @@ import ZoneIntelligence from './pages/ZoneIntelligence';
 import UrbanMap from './pages/UrbanMap';
 import CheckoutPage from './pages/CheckoutPage';
 
+import LoginPage from './pages/LoginPage';
+
 function App() {
   return (
     <Router>
       <Routes>
         {/* Public Pages */}
-        <Route path="/" element={<SetupPage />} />
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/setup" element={<SetupPage />} />
 
         {/* Admin Dashboard (sidebar layout wraps all admin pages) */}
         <Route path="/admin" element={<AdminLayout />}>

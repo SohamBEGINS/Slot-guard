@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import random
 
 from app.db.database import get_db
 from app.db.models import SimulationRun, Rider, RiderState, Order, SlotDemand
 from app.schemas.requests import SimulationInitRequest
-from app.core.dataset_manager import DatasetManager
 from app.core.ml_manager import MLManager
 
 router = APIRouter()
@@ -61,30 +60,53 @@ def initialize_simulation(req: SimulationInitRequest, db: Session = Depends(get_
                 status=status
             ))
 
-    # 3. Inject Orders based on Dataset
-    dataset_manager = DatasetManager()
+    # 3. Inject Orders based on Dataset with Context-Aware Decay
+    # Advance slot booking patterns decay differently based on scenario:
+    #   Normal weekday:  0.70^i → [100%, 70%, 49%, 34%] — clear drop-off
+    #   Weekend:         0.78^i → [100%, 78%, 61%, 47%] — gentler, planned bookings
+    #   Rain/Storm:      0.82^i → [100%, 82%, 67%, 55%] — people hedge, book later
+    #   Gridlock:        0.85^i → [100%, 85%, 72%, 61%] — strong future booking
+    #   Festival:        0.93^i → [100%, 93%, 86%, 80%] — nearly flat, everything fills!
+    def get_decay_base(weather: str, traffic: str, is_festival: bool) -> float:
+        if is_festival:
+            return 0.93
+        if traffic == "GRIDLOCK":
+            return 0.85
+        if weather in ["RAIN", "STORM"]:
+            return 0.82
+        if req.target_time.weekday() >= 5:  # Weekend
+            return 0.78
+        return 0.70  # Normal weekday
+
+    decay_base = get_decay_base(req.weather, req.traffic, req.is_festival)
     total_orders = 0
     
+    # 3. User Requested Logic: Take total injected orders and distribute randomly across 8 zones
+    random_splits = [random.uniform(0.1, 1.0) for _ in ZONES]
+    sum_splits = sum(random_splits)
+    
+    zone_base_loads = {}
+    for z, split in zip(ZONES, random_splits):
+        zone_base_loads[z] = int(req.total_orders_to_inject * (split / sum_splits))
+        
     # We simulate the current hour (t) and next 3 hours (t+1, t+2, t+3)
     for i in range(4):
-        target_hour = req.target_time.hour + i
-        slot_window = f"{target_hour}:00-{target_hour+1}:00"
-        
-        # Query dataset for committed load at this specific hour under these conditions
-        zone_loads = dataset_manager.get_committed_load_per_zone(
-            weather=req.weather,
-            traffic=req.traffic,
-            is_festival=req.is_festival,
-            target_hour=target_hour
-        )
+        future_time = req.target_time + timedelta(hours=i)
+        target_hour = future_time.hour
+        date_str = future_time.strftime("%Y-%m-%d")
+        next_hour = (target_hour + 1) % 24
+        slot_window = f"{target_hour:02d}:00-{next_hour:02d}:00"
+        decay_factor = decay_base ** i
         
         for z in ZONES:
-            load = zone_loads[z]
+            raw_load = zone_base_loads[z]
+            
+            load = max(1, int(raw_load * decay_factor))  # Decay the load, keep min 1
             
             # Save the aggregated load row
             db.add(SlotDemand(
                 run_id=run_id,
-                date=req.target_time.strftime("%Y-%m-%d"),
+                date=date_str,
                 zone_id=z,
                 target_hour=target_hour,
                 slot_window=slot_window,
@@ -119,3 +141,21 @@ def get_simulation_runs(username: str, db: Session = Depends(get_db)):
     """
     runs = db.query(SimulationRun).filter(SimulationRun.created_by == username).order_by(SimulationRun.created_at.desc()).all()
     return {"runs": runs}
+
+@router.delete("/{run_id}")
+def delete_simulation(run_id: str, db: Session = Depends(get_db)):
+    """
+    Deletes a specific simulation run and all associated relational records (cascading manually).
+    """
+    sim_run = db.query(SimulationRun).filter(SimulationRun.run_id == run_id).first()
+    if not sim_run:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+        
+    db.query(RiderState).filter(RiderState.run_id == run_id).delete()
+    db.query(SlotDemand).filter(SlotDemand.run_id == run_id).delete()
+    db.query(Order).filter(Order.run_id == run_id).delete()
+    
+    db.delete(sim_run)
+    db.commit()
+    
+    return {"message": f"Deleted simulation {run_id} successfully"}

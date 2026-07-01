@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Loader2, AlertTriangle, ShieldCheck, Lock, Users, Package, TrendingUp } from "lucide-react";
+import { Loader2, AlertTriangle, ShieldCheck, Lock, Users, Package, TrendingUp, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import TerminalLoader from '../components/TerminalLoader';
@@ -28,20 +28,31 @@ const SURGE_STEPS = [
 ];
 
 const INCENTIVE_STEPS = [
-    "Authorizing +₹25 Rider Bonus...",
-    "Deploying 15 standby riders to active pool...",
-    "Expanding base capacity thresholds...",
-    "Recomputing XGBoost safety margins...",
-    "Unlocking Zone delivery slots..."
+    "Calculating Sigmoid Conversion S-Curve...",
+    "Pinging INACTIVE riders in local zone...",
+    "Processing financial motivation triggers...",
+    "Deploying Standby Fleet & recalculating capacity..."
+];
+
+const STEER_STEPS = [
+    "Running ML Binary Search Solver...",
+    "Identifying optimal future capacity thresholds...",
+    "Redistributing exact non-linear excess demand...",
+    "Verifying cascading capacity constraints..."
 ];
 
 export default function ZoneIntelligence() {
     const navigate = useNavigate();
+    const [simulationParams] = useState(() => {
+        return JSON.parse(sessionStorage.getItem('simulationParams') || '{}');
+    });
 
-    const simulationParams = JSON.parse(sessionStorage.getItem('simulationParams') || '{}');
+    const [loading, setLoading] = useState(true);
+    const [loaderState, setLoaderState] = useState({ isRunning: false, currentStep: '', progress: 0 });
+    const [incentiveBonus, setIncentiveBonus] = useState(40);
+    const [notification, setNotification] = useState(null); // { type, message }
 
     const [forecastData, setForecastData] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [activeZoneId, setActiveZoneId] = useState("1");
     const [overrides, setOverrides] = useState(() => {
         const saved = sessionStorage.getItem('zoneOverrides');
@@ -91,6 +102,7 @@ export default function ZoneIntelligence() {
 
     const rawFetchForecast = async () => {
         const queryParams = new URLSearchParams({
+            run_id: sessionStorage.getItem('active_run_id'),
             target_time: simulationParams.dateTime,
             weather: simulationParams.weather,
             traffic: simulationParams.traffic,
@@ -99,6 +111,7 @@ export default function ZoneIntelligence() {
         const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
         const res = await fetch(`${API_BASE_URL}/api/v1/simulation/demand-forecast?${queryParams}`);
         const data = await res.json();
+
         setForecastData(data.forecast);
         sessionStorage.setItem('cachedParams', JSON.stringify(simulationParams));
         sessionStorage.setItem('cachedForecast', JSON.stringify(data.forecast));
@@ -119,11 +132,13 @@ export default function ZoneIntelligence() {
     };
 
     useEffect(() => {
-        if (!simulationParams.dateTime) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (!sessionStorage.getItem('active_run_id')) {
             navigate('/');
             return;
         }
 
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         fetchForecast();
     }, []);
 
@@ -162,11 +177,10 @@ export default function ZoneIntelligence() {
 
     const activeZone = forecastData.find(z => z.zone_id.toString() === activeZoneId) || forecastData[0];
 
-    // Find the peak value and which hours it occurs
     const peakDemand = Math.max(...activeZone.hours.map(h => h.predicted_demand));
     const peakHours = activeZone.hours
         .filter(h => h.predicted_demand === peakDemand)
-        .map(h => h.slot.split(' ')[0]); // Get just the "18:00" part
+        .map(h => h.slot.split(' ')[0]);
 
     const peakHoursDisplay = peakHours.length > 2
         ? `${peakHours.slice(0, 2).join(', ')}...`
@@ -176,7 +190,6 @@ export default function ZoneIntelligence() {
         <div className="p-6 flex flex-col min-h-[calc(100vh-2rem)] relative">
             {loading && <TerminalLoader activeIndex={loadingStepIndex} steps={loadingSteps} />}
 
-            {/* HEADER & SCENARIO STRIP */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/40 shrink-0">
                 <div>
                     <h1 className="text-3xl font-extrabold tracking-tight">Zone Intelligence</h1>
@@ -199,7 +212,6 @@ export default function ZoneIntelligence() {
                 </div>
             </div>
 
-            {/* ZONE SELECTOR & KPI BADGES */}
             <div className="flex items-center gap-6 mb-6 shrink-0">
                 <Select value={activeZoneId} onValueChange={setActiveZoneId}>
                     <SelectTrigger className="w-[240px] h-12 bg-primary text-primary-foreground font-bold text-lg border-none focus:ring-0 rounded-full px-6 shadow-md hover:scale-[1.02] transition-transform">
@@ -250,10 +262,160 @@ export default function ZoneIntelligence() {
                 </div>
             </div>
 
-            {/* MAIN CONTENT GRID */}
+            {notification && (
+                <div className={`fixed bottom-8 right-8 z-50 flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 ${
+                    notification.type === 'success' 
+                        ? 'bg-indigo-950/90 border-indigo-500/50 shadow-[0_0_30px_rgba(99,102,241,0.3)]' 
+                        : 'bg-red-950/90 border-red-500/50'
+                }`}>
+                    <div className={`p-2 rounded-full ${
+                        notification.type === 'success' ? 'bg-indigo-500/20' : 'bg-red-500/20'
+                    }`}>
+                        <Zap className={`w-5 h-5 ${
+                            notification.type === 'success' ? 'text-indigo-400' : 'text-red-400'
+                        }`} />
+                    </div>
+                    <div>
+                        <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-0.5">Surge Deployed</p>
+                        <p className="text-sm font-bold text-white">{notification.message}</p>
+                    </div>
+                    <button onClick={() => setNotification(null)} className="ml-4 text-muted-foreground hover:text-white transition-colors text-lg leading-none">&times;</button>
+                </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl px-6 py-4 shadow-xl mb-6 shrink-0 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 opacity-50"></div>
+                
+                <div className="flex items-center gap-6 relative z-10">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-indigo-500/10 p-2 rounded-lg border border-indigo-500/20">
+                            <Zap className="w-5 h-5 text-indigo-400" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mb-1">Rider Surge Incentive</p>
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm font-black text-indigo-400 w-12">₹{incentiveBonus}</span>
+                                <input 
+                                    type="range" 
+                                    min="10" 
+                                    max="100" 
+                                    step="10" 
+                                    value={incentiveBonus} 
+                                    onChange={(e) => setIncentiveBonus(parseInt(e.target.value))} 
+                                    className="w-32 accent-indigo-500 cursor-pointer" 
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <Button
+                        size="sm"
+                        className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-6 shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:scale-105"
+                        onClick={async () => {
+                            let notifData = null;
+                            const apiCall = async () => {
+                                const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                                const res = await fetch(`${API_BASE_URL}/api/v1/simulation/deploy-incentive`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                        run_id: sessionStorage.getItem('active_run_id'),
+                                        zone_id: activeZone.zone_id, 
+                                        bonus_amount: incentiveBonus
+                                    })
+                                });
+                                notifData = await res.json();
+                                await rawFetchForecast();
+                            };
+                            
+                            await executeWithLoader(INCENTIVE_STEPS, apiCall);
+                            
+                            await new Promise(r => setTimeout(r, 300));
+                            
+                            if (notifData) {
+                                if (notifData.woke_up > 0) {
+                                    setNotification({ type: 'success', message: `${notifData.woke_up} riders are now ONLINE in ${activeZone.zone_name}! (${notifData.conversion_pct}% conversion)` });
+                                } else {
+                                    setNotification({ type: 'warn', message: `Bonus too low — no riders responded. Try increasing the amount!` });
+                                }
+                                setTimeout(() => setNotification(null), 5000);
+                            }
+                        }}
+                    >
+                        Deploy Surge
+                    </Button>
+                </div>
+
+                <div className="flex items-center gap-4 relative z-10">
+                    <Button
+                        variant="outline"
+                        className="border-yellow-500/50 hover:bg-yellow-500/10 text-yellow-500 font-bold px-6 h-10 transition-all hover:scale-105"
+                        onClick={async () => {
+                            const apiCall = async () => {
+                                const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                                await fetch(`${API_BASE_URL}/api/v1/simulation/extend-eta`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                        run_id: sessionStorage.getItem('active_run_id'),
+                                        zone_id: activeZone.zone_id, 
+                                        target_hour: parseInt(peakHours[0]) 
+                                    })
+                                });
+                                await rawFetchForecast();
+                            };
+                            await executeWithLoader(SURGE_STEPS, apiCall);
+                        }}
+                    >
+                        <TrendingUp className="w-4 h-4 mr-2" />
+                        Extend ETA (+15m)
+                    </Button>
+
+                    <Button
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-6 h-10 shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all hover:scale-105"
+                        onClick={async () => {
+                            const apiCall = async () => {
+                                const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                                
+                                const peakSlotHour = parseInt(peakHours[0]);
+                                const peakSlot = activeZone.hours.find(h => h.hour === peakSlotHour);
+                                
+                                const headrooms = {};
+                                activeZone.hours.forEach(h => {
+                                    if (h.hour > peakSlotHour) {
+                                        headrooms[h.hour.toString()] = h.true_headroom || 0;
+                                    }
+                                });
+
+                                if (peakSlot && peakSlot.predicted_demand > activeZone.capacity) {
+                                    const excess = peakSlot.true_excess || 0;
+                                    if (excess > 0) {
+                                        await fetch(`${API_BASE_URL}/api/v1/simulation/steer-demand`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ 
+                                                run_id: sessionStorage.getItem('active_run_id'),
+                                                zone_id: activeZone.zone_id, 
+                                                from_hour: peakSlotHour,
+                                                excess_orders: excess,
+                                                target_headrooms: headrooms
+                                            })
+                                        });
+                                    }
+                                }
+                                await rawFetchForecast();
+                            };
+                            await executeWithLoader(STEER_STEPS, apiCall);
+                        }}
+                    >
+                        <Users className="w-4 h-4 mr-2" />
+                        Steer Demand (Auto)
+                    </Button>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
 
-                {/* LEFT: CHART */}
                 <Card className="xl:col-span-5 border-border/40 shadow-xl bg-card/40 backdrop-blur-md flex flex-col min-h-0">
                     <CardHeader className="pb-2 pt-4">
                         <CardTitle className="text-lg font-bold tracking-wide">{activeZone.zone_name} Demand Trend</CardTitle>
@@ -291,56 +453,12 @@ export default function ZoneIntelligence() {
                     </CardContent>
                 </Card>
 
-                {/* RIGHT: SLOT CONFIG MANAGER */}
                 <Card className="xl:col-span-7 border-border/40 shadow-xl bg-[#1e2329] flex flex-col overflow-hidden min-h-0">
                     <CardHeader className="border-b border-border/10 bg-[#1a1f24] py-4 shrink-0">
                         <div className="flex justify-between items-center">
                             <div>
                                 <CardTitle className="text-xs tracking-widest text-muted-foreground uppercase font-black">Slot Configuration Manager</CardTitle>
                                 <p className="text-xs text-primary mt-1 font-semibold">ZONE: {activeZone.zone_name.toUpperCase()}</p>
-                            </div>
-                            <div className="flex gap-3">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-yellow-500/50 hover:bg-yellow-500/10 text-yellow-500 font-bold"
-                                    onClick={async () => {
-                                        const apiCall = async () => {
-                                            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-                                            await fetch(`${API_BASE_URL}/api/v1/simulation/surge-pricing`, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ zone_id: activeZone.zone_id, drop_percentage: 0.15 })
-                                            });
-                                            await rawFetchForecast();
-                                        };
-                                        await executeWithLoader(SURGE_STEPS, apiCall);
-                                    }}
-                                >
-                                    <TrendingUp className="w-4 h-4 mr-2" />
-                                    Enable Surge (+$3.99)
-                                </Button>
-
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-green-500/50 hover:bg-green-500/10 text-green-500 font-bold"
-                                    onClick={async () => {
-                                        const apiCall = async () => {
-                                            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-                                            await fetch(`${API_BASE_URL}/api/v1/simulation/incentive`, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ zone_id: activeZone.zone_id, riders_to_add: 15 })
-                                            });
-                                            await rawFetchForecast();
-                                        };
-                                        await executeWithLoader(INCENTIVE_STEPS, apiCall);
-                                    }}
-                                >
-                                    <Users className="w-4 h-4 mr-2" />
-                                    Rider Bonus (+₹25)
-                                </Button>
                             </div>
                         </div>
                     </CardHeader>
@@ -358,10 +476,8 @@ export default function ZoneIntelligence() {
                             <tbody className="divide-y divide-border/10">
                                 {activeZone.hours.map((h, i) => {
                                     const key = `${activeZone.zone_id}-${h.slot}`;
-                                    // Default isOpen logic
                                     const defaultIsOpen = h.status !== 'LOCKED';
                                     const currentIsOpen = overrides[key] !== undefined ? overrides[key] : defaultIsOpen;
-                                    const isManuallyOverridden = overrides[key] !== undefined && overrides[key] !== defaultIsOpen;
 
                                     const getStatusColorCls = (status) => {
                                         if (status === 'LOCKED') return 'text-red-500';

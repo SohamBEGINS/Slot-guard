@@ -45,4 +45,5 @@ class SimulationInitRequest(BaseModel):
     traffic: str = Field(..., description="LOW, MEDIUM, HIGH, GRIDLOCK")
     is_festival: bool
     fleet_deployment_pct: float = Field(default=0.75, ge=0.5, le=1.0, description="Fraction of riders to bring ONLINE per zone")
+    total_orders_to_inject: int = Field(default=800, description="Total pool of advance orders to distribute across zones")
     created_by: str | None = Field(default=None, description="Username of the operator")
