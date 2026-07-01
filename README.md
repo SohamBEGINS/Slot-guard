@@ -22,9 +22,18 @@ By running an XGBoost Regression model against live city conditions (Weather, Tr
   - Uses the **Singleton Pattern** to guarantee the ML model is loaded into RAM exactly once.
   - Implements the **Strategy Pattern** to scale rider capacity (e.g., riders are mathematically slower in severe rain).
 
-### 🧩 UML Class Diagram (Backend Architecture)
+### 🧩 UML Class Diagram (System Integration)
 ```mermaid
 classDiagram
+    %% Frontend Layer
+    class CheckoutPage {
+        <<React Page>>
+        -selectedZoneId: string
+        -evaluatedSlots: dict
+        +handleSlotClick(slot, idx)
+        +getSlotVisuals(idx)
+    }
+
     %% API Layer
     class SimulationRouter {
         <<FastAPI Router>>
@@ -33,25 +42,25 @@ classDiagram
     }
     class CheckoutSlotAPI {
         <<FastAPI Router>>
-        +get_available_slots()
+        +evaluate_delivery_slot(request) CheckoutSlotResponse
     }
 
     %% Facade Pattern (Orchestrator)
     class SlotAvailabilityFacade {
         <<Service Layer>>
-        -ml_manager: MLManager
+        -db: Session
         -rider_repo: SQLRiderRepository
         -demand_repo: SQLSlotDemandRepository
-        -strategy: CapacityStrategy
-        +evaluate_slot(zone_id, slot_time) SlotStatus
+        -ml_manager: MLManager
+        +evaluate_slot(request) CheckoutSlotResponse
     }
 
     %% Repository Pattern (Data Access)
     class SQLRiderRepository {
-        +get_active_riders(zone_id) int
+        +get_active_riders(zone_id, run_id) int
     }
     class SQLSlotDemandRepository {
-        +get_current_load(zone_id, slot_time) int
+        +get_current_load(zone_id, slot_time, run_id) int
     }
 
     %% Strategy Pattern (Business Logic)
@@ -78,18 +87,34 @@ classDiagram
     }
 
     %% Relationships
+    CheckoutPage ..> CheckoutSlotAPI : HTTP POST /api/v1/checkout/evaluate-slot
     SimulationRouter --> SlotAvailabilityFacade : forecasts
     SimulationRouter --> MLManager : initializes model
-    CheckoutSlotAPI --> SlotAvailabilityFacade : asks if slot is open
-    SlotAvailabilityFacade --> SQLRiderRepository : fetches live supply
-    SlotAvailabilityFacade --> SQLSlotDemandRepository : fetches momentum
-    SlotAvailabilityFacade --> CapacityStrategy : executes math
-    SlotAvailabilityFacade --> MLManager : fetches prediction
+    CheckoutSlotAPI --> SlotAvailabilityFacade : delegates to
+    SlotAvailabilityFacade --> SQLRiderRepository : queries supply
+    SlotAvailabilityFacade --> SQLSlotDemandRepository : queries load
+    SlotAvailabilityFacade --> CapacityStrategy : selects strategy
+    SlotAvailabilityFacade --> MLManager : predicts demand
     
     CapacityStrategy <|-- StandardDayStrategy : implements
     CapacityStrategy <|-- SevereWeatherStrategy : implements
     CapacityStrategy <|-- FestivalStrategy : implements
 ```
+
+### 🔗 Checkout Page & Facade Integration Flow
+The real-time slot checking mechanism is wired through a decoupled frontend-backend pipeline:
+1. **Frontend Initiation (`CheckoutPage.jsx`):** When a user clicks a delivery slot card, the `handleSlotClick` handler packages the active checkout context (`run_id`, `zone_id`, `slot_time`, and session parameters like `weather`, `traffic`, and `is_festival`) and sends an HTTP POST request to `/api/v1/checkout/evaluate-slot`.
+2. **API Endpoint (`routes.py`):** The `evaluate_delivery_slot` route receives the JSON payload, instantiates a stateful `SlotAvailabilityFacade` passing the SQLAlchemy DB session, and awaits the evaluation.
+3. **Facade Orchestration (`facade.py`):** The `SlotAvailabilityFacade` coordinates data querying and model evaluation:
+   - Fetches the active fleet size (`SQLRiderRepository`) and current slot orders (`SQLSlotDemandRepository`) scoped to the active `run_id`.
+   - Uses `CapacityStrategy` to calculate the dynamic rider capacity limit (adjusting for weather delays or holiday bonuses).
+   - Generates the non-linear feature matrices (e.g., sine/cosine temporal values) and passes them to the thread-pool-offloaded `MLManager` singleton.
+   - Inspects the DB to resolve if any manual admin overrides or dynamic surge fees are active.
+4. **Client-Side Rendering:** The backend returns a `CheckoutSlotResponse`. The `CheckoutPage` component saves this in its `evaluatedSlots` state, and the `getSlotVisuals` helper dynamically renders visual statuses based on the response details:
+   - **Unavailable:** If `is_available` is `false`, the slot is greyed out.
+   - **High Volume Delay:** If `surge_fee_active` is `true`, it flags the slot with warning badges and applies delivery delay details.
+   - **Fast Filling:** If predicted demand exceeds 80% of live capacity, the slot is colored amber with a surcharge.
+   - **Available:** Normal green state.
 
 ### 🖥️ The Frontend (React + Vite)
 - **Framework:** React, Vite, TailwindCSS
@@ -187,9 +212,4 @@ This project is structured perfectly for a two-tier free deployment:
 2. **Backend:** Deployable to **Railway or Render**. Unlike Vercel's serverless limits, Railway provides a persistent container (with 500MB+ RAM), ensuring the XGBoost model stays permanently loaded in memory for millisecond response times without timing out.
 
 ---
-
-## 📚 Interview Preparation Resources
-We have compiled comprehensive interview preparation files to help you master the tech stack and understand the system design of Slot Guard:
-1. **[Tech Stack Guide](file:///c:/Users/Lenovo/Desktop/delivery_slot_prediction/interview_prep_tech_stack.md)**: Deep dive into FastAPI (ASGI, Event Loop blocking, Thread Pool offloading, Dependency Injection, Lifespan context) and React (sessionStorage client caching, Vite configuration, performance optimization).
-2. **[Project & System Design Guide](file:///c:/Users/Lenovo/Desktop/delivery_slot_prediction/interview_prep_project.md)**: Detailed examination of delivery collisions, the Multi-Strategy capacity pattern, our dynamic Context-Aware Slot Booking Decay Model, Supabase PostgreSQL schema, and the MLOps pipeline (GitHub Actions + MLflow + DagsHub).
 
