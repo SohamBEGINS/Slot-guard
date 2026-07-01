@@ -49,13 +49,13 @@ class SlotAvailabilityFacade:
 
         ml_features = {
             "zone_id": request.zone_id,
-            "Hour_Sin": np.sin(2 * np.pi * target_hour / 24),
-            "Hour_Cos": np.cos(2 * np.pi * target_hour / 24),
+            "Weather": self._map_weather_to_ml_float(request.weather),
+            "Traffic": self._map_traffic_to_ml_float(request.traffic),
             "Is_Weekend": is_weekend,
             "Is_Festival": 1 if request.is_festival else 0,
-            "Weather_Severity": self._map_weather_to_ml_float(request.weather),
-            "Traffic_Encoded": self._map_traffic_to_ml_float(request.traffic),
-            "Current_Load": current_load
+            "Current_Load": current_load,
+            "Hour_Sin": np.sin(2 * np.pi * target_hour / 24),
+            "Hour_Cos": np.cos(2 * np.pi * target_hour / 24)
         }
 
         # 4. Offload the heavy XGBoost math to the Thread Pool

@@ -202,92 +202,6 @@ def activate_riders(req: ActivateRequest, db: Session = Depends(get_db)):
     }
 
 
-# ─── Strategy A: ETA Extension ──────────────────────────────────────────────
-
-BASE_DELIVERY_MINUTES = 30  # Standard quick-commerce promise
-
-
-def compute_eta_extension(current_load: int, max_capacity: int) -> int:
-    """
-    Derives the ETA extension from the zone's overload ratio.
-    """
-    if max_capacity == 0:
-        return 45  # Zero riders → maximum extension
-
-    ratio = current_load / max_capacity
-    if ratio < 0.8:
-        return 0    # SAFE — no extension needed
-    elif ratio < 1.0:
-        return 15   # RISK — approaching limit
-    elif ratio < 1.3:
-        return 30   # LOCKED — clearly over capacity
-    else:
-        return 45   # SEVERE — far over capacity
-
-
-class DeployIncentiveRequest(BaseModel):
-    run_id: str
-    zone_id: int
-    bonus_amount: int
-
-class ExtendETARequest(BaseModel):
-    run_id: str
-    zone_id: int
-    target_hour: int
-
-
-@router.post("/extend-eta")
-def extend_eta(req: ExtendETARequest, db: Session = Depends(get_db)):
-    """
-    Strategy A: ETA Extension (Expectation Management).
-    Extension time is auto-computed from the zone's overload ratio —
-    the admin clicks a button, the system does the math.
-    Checkout shows BASE_ETA (30 min) + computed extension.
-    Zero orders are touched. Only slot metadata is updated.
-    """
-    slot = db.query(SlotDemand).filter(
-        SlotDemand.run_id == req.run_id,
-        SlotDemand.zone_id == req.zone_id,
-        SlotDemand.target_hour == req.target_hour
-    ).first()
-
-    if not slot:
-        raise HTTPException(status_code=404, detail="Slot not found")
-
-    sim_run = db.query(SimulationRun).filter(SimulationRun.run_id == req.run_id).first()
-    weather = sim_run.config.get("weather", "CLEAR")
-    is_festival = sim_run.config.get("is_festival", False)
-
-    # Get live rider count for this zone to compute capacity
-    online_riders = db.query(RiderState).filter(
-        RiderState.run_id == req.run_id,
-        RiderState.current_zone_id == req.zone_id,
-        RiderState.status == "ONLINE"
-    ).count()
-
-    strategy = get_capacity_strategy(WeatherCondition(weather), is_festival)
-    max_capacity = strategy.calculate_capacity(online_riders)
-
-    extension = compute_eta_extension(slot.current_load, max_capacity)
-    total_eta = BASE_DELIVERY_MINUTES + extension
-
-    # Reuse surge_fee_active as the ETA-extended flag
-    # surge_fee_amount stores the TOTAL eta minutes (base + extension)
-    slot.surge_fee_active = True
-    slot.surge_fee_amount = float(total_eta)
-
-    db.commit()
-    return {
-        "message": f"Zone {req.zone_id} at {req.target_hour}:00 — ETA extended to {total_eta} min",
-        "zone_id": req.zone_id,
-        "target_hour": req.target_hour,
-        "base_eta_minutes": BASE_DELIVERY_MINUTES,
-        "extension_minutes": extension,
-        "total_eta_minutes": total_eta,
-        "overload_ratio": round(slot.current_load / max(max_capacity, 1), 2)
-    }
-
-
 # ─── Strategy B: Steer Demand (Off-Peak) ─────────────────────────────────────
 
 class SteerDemandRequest(BaseModel):
@@ -391,6 +305,11 @@ def steer_demand(req: SteerDemandRequest, db: Session = Depends(get_db)):
         "from_slot_new_load": from_slot.current_load,
         "moves": moves  # Frontend applies these deltas directly — no ML re-query needed
     }
+
+class DeployIncentiveRequest(BaseModel):
+    run_id: str
+    zone_id: int
+    bonus_amount: int
 
 @router.post("/deploy-incentive")
 def deploy_incentive(req: DeployIncentiveRequest, db: Session = Depends(get_db)):

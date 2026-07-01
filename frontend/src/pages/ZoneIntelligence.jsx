@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Loader2, AlertTriangle, ShieldCheck, Lock, Users, Package, TrendingUp, Zap } from "lucide-react";
+import { Loader2, AlertTriangle, ShieldCheck, Lock, Users, Package, TrendingUp, Zap, Clock, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import TerminalLoader from '../components/TerminalLoader';
@@ -263,17 +263,14 @@ export default function ZoneIntelligence() {
             </div>
 
             {notification && (
-                <div className={`fixed bottom-8 right-8 z-50 flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 ${
-                    notification.type === 'success' 
-                        ? 'bg-indigo-950/90 border-indigo-500/50 shadow-[0_0_30px_rgba(99,102,241,0.3)]' 
+                <div className={`fixed bottom-8 right-8 z-50 flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 ${notification.type === 'success'
+                        ? 'bg-indigo-950/90 border-indigo-500/50 shadow-[0_0_30px_rgba(99,102,241,0.3)]'
                         : 'bg-red-950/90 border-red-500/50'
-                }`}>
-                    <div className={`p-2 rounded-full ${
-                        notification.type === 'success' ? 'bg-indigo-500/20' : 'bg-red-500/20'
                     }`}>
-                        <Zap className={`w-5 h-5 ${
-                            notification.type === 'success' ? 'text-indigo-400' : 'text-red-400'
-                        }`} />
+                    <div className={`p-2 rounded-full ${notification.type === 'success' ? 'bg-indigo-500/20' : 'bg-red-500/20'
+                        }`}>
+                        <Zap className={`w-5 h-5 ${notification.type === 'success' ? 'text-indigo-400' : 'text-red-400'
+                            }`} />
                     </div>
                     <div>
                         <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-0.5">Surge Deployed</p>
@@ -285,7 +282,7 @@ export default function ZoneIntelligence() {
 
             <div className="flex flex-wrap items-center justify-between bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl px-6 py-4 shadow-xl mb-6 shrink-0 relative overflow-hidden group">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 opacity-50"></div>
-                
+
                 <div className="flex items-center gap-6 relative z-10">
                     <div className="flex items-center gap-4">
                         <div className="bg-indigo-500/10 p-2 rounded-lg border border-indigo-500/20">
@@ -295,19 +292,19 @@ export default function ZoneIntelligence() {
                             <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mb-1">Rider Surge Incentive</p>
                             <div className="flex items-center gap-3">
                                 <span className="text-sm font-black text-indigo-400 w-12">₹{incentiveBonus}</span>
-                                <input 
-                                    type="range" 
-                                    min="10" 
-                                    max="100" 
-                                    step="10" 
-                                    value={incentiveBonus} 
-                                    onChange={(e) => setIncentiveBonus(parseInt(e.target.value))} 
-                                    className="w-32 accent-indigo-500 cursor-pointer" 
+                                <input
+                                    type="range"
+                                    min="10"
+                                    max="100"
+                                    step="10"
+                                    value={incentiveBonus}
+                                    onChange={(e) => setIncentiveBonus(parseInt(e.target.value))}
+                                    className="w-32 accent-indigo-500 cursor-pointer"
                                 />
                             </div>
                         </div>
                     </div>
-                    
+
                     <Button
                         size="sm"
                         className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-6 shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:scale-105"
@@ -318,20 +315,20 @@ export default function ZoneIntelligence() {
                                 const res = await fetch(`${API_BASE_URL}/api/v1/simulation/deploy-incentive`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ 
+                                    body: JSON.stringify({
                                         run_id: sessionStorage.getItem('active_run_id'),
-                                        zone_id: activeZone.zone_id, 
+                                        zone_id: activeZone.zone_id,
                                         bonus_amount: incentiveBonus
                                     })
                                 });
                                 notifData = await res.json();
                                 await rawFetchForecast();
                             };
-                            
+
                             await executeWithLoader(INCENTIVE_STEPS, apiCall);
-                            
+
                             await new Promise(r => setTimeout(r, 300));
-                            
+
                             if (notifData) {
                                 if (notifData.woke_up > 0) {
                                     setNotification({ type: 'success', message: `${notifData.woke_up} riders are now ONLINE in ${activeZone.zone_name}! (${notifData.conversion_pct}% conversion)` });
@@ -348,54 +345,32 @@ export default function ZoneIntelligence() {
 
                 <div className="flex items-center gap-4 relative z-10">
                     <Button
-                        variant="outline"
-                        className="border-yellow-500/50 hover:bg-yellow-500/10 text-yellow-500 font-bold px-6 h-10 transition-all hover:scale-105"
-                        onClick={async () => {
-                            const apiCall = async () => {
-                                const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-                                await fetch(`${API_BASE_URL}/api/v1/simulation/extend-eta`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ 
-                                        run_id: sessionStorage.getItem('active_run_id'),
-                                        zone_id: activeZone.zone_id, 
-                                        target_hour: parseInt(peakHours[0]) 
-                                    })
-                                });
-                                await rawFetchForecast();
-                            };
-                            await executeWithLoader(SURGE_STEPS, apiCall);
-                        }}
-                    >
-                        <TrendingUp className="w-4 h-4 mr-2" />
-                        Extend ETA (+15m)
-                    </Button>
-
-                    <Button
                         className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-6 h-10 shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all hover:scale-105"
                         onClick={async () => {
                             const apiCall = async () => {
                                 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-                                
+
                                 const peakSlotHour = parseInt(peakHours[0]);
                                 const peakSlot = activeZone.hours.find(h => h.hour === peakSlotHour);
-                                
+
                                 const headrooms = {};
                                 activeZone.hours.forEach(h => {
                                     if (h.hour > peakSlotHour) {
-                                        headrooms[h.hour.toString()] = h.true_headroom || 0;
+                                        headrooms[h.hour.toString()] = h.true_headroom !== undefined ? h.true_headroom : Math.max(0, activeZone.capacity - h.predicted_demand);
                                     }
                                 });
 
                                 if (peakSlot && peakSlot.predicted_demand > activeZone.capacity) {
-                                    const excess = peakSlot.true_excess || 0;
+                                    // Fallback to simple math if true_excess is missing from cache
+                                    const excess = peakSlot.true_excess !== undefined ? peakSlot.true_excess : (peakSlot.predicted_demand - activeZone.capacity);
+                                    
                                     if (excess > 0) {
                                         await fetch(`${API_BASE_URL}/api/v1/simulation/steer-demand`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ 
+                                            body: JSON.stringify({
                                                 run_id: sessionStorage.getItem('active_run_id'),
-                                                zone_id: activeZone.zone_id, 
+                                                zone_id: activeZone.zone_id,
                                                 from_hour: peakSlotHour,
                                                 excess_orders: excess,
                                                 target_headrooms: headrooms
@@ -532,9 +507,7 @@ export default function ZoneIntelligence() {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-3">
-                                                    <span className={`text-xs font-bold uppercase tracking-wider ${currentIsOpen ? 'text-green-500' : 'text-muted-foreground'}`}>
-                                                        {currentIsOpen ? 'Open' : 'Force Close'}
-                                                    </span>
+
                                                     <Switch
                                                         checked={currentIsOpen}
                                                         onCheckedChange={() => handleToggleOverride(activeZone.zone_id, h.slot, currentIsOpen)}

@@ -134,23 +134,21 @@ async def get_demand_forecast(
                 high = max_capacity
                 best = 0
                 
-                # We do a rapid binary search up to max_capacity to find the absolute ceiling
                 while low <= high:
                     mid = (low + high) // 2
                     test_features = ml_features.copy()
-                    test_features["Current_Load"] = current_load + mid
+                    test_features["Current_Load"] = mid
                     
                     test_pred = await ml_manager.predict_async(test_features)
                     
                     if test_pred <= max_capacity:
                         best = mid
-                        low = mid + 1
+                        low = mid + 1 
                     else:
-                        high = mid - 1
+                        high = mid - 1 
                         
-                true_headroom = best
+                true_headroom = max(0, best - current_load)
             else:
-                # Reverse Binary Search to find the exact offload required
                 low = 0
                 high = current_load
                 best_allowed_load = 0
@@ -164,9 +162,9 @@ async def get_demand_forecast(
                     
                     if test_pred <= max_capacity:
                         best_allowed_load = mid
-                        low = mid + 1  # We can safely allow more load
+                        low = mid + 1 
                     else:
-                        high = mid - 1 # Too high, need to test less load
+                        high = mid - 1 
                         
                 true_excess = current_load - best_allowed_load
 
