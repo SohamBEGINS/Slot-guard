@@ -109,9 +109,45 @@ We built an immersive Admin Dashboard to simulate logistics scenarios and visual
    - Festival/Holiday multipliers (Applies a 2x demand surge)
 2. **Terminal Initialization:** A dynamic loading sequence that simulates the backend fetching weights from MLflow and wiping active simulation states.
 3. **Zone Intelligence Dashboard:** 
-   - Displays a 6-hour rolling chart (Demand vs Capacity).
+   - Displays a 4-hour rolling chart (Demand vs Capacity).
    - Dynamically highlights **Red Zones** where the demand breaches the active rider capacity (A Delivery Collision).
    - Features tactical counters for "Total Demand", "Projected Riders", and "Breach Risk".
+
+---
+
+## ⚡ Intelligent Demand-Supply Balancing Engine
+Predictive forecasting alone cannot prevent order blockages. To proactively resolve delivery collisions, the platform provides real-time demand-supply balancing levers. The motives and technical mechanics for these features are detailed below:
+
+### 1. Supply-Side Incentives (Deploy Surge)
+* **Motive:** When localized demand spikes rapidly (e.g., sudden rainfall or festival rushes), the quickest way to restore capacity is to boost local courier supply. Financial bonuses motivate offline gig-economy workers to log on immediately. However, payout values must be optimized; overpaying creates diminishing returns on capital, while underpaying fails to convert enough riders.
+* **Technical and Mathematical Mechanics:**
+  - **Endpoint:** `POST /api/v1/simulation/deploy-incentive`
+  - **Behavioral S-Curve:** Employs a **Sigmoid Activation Function** to model log-on conversion:
+    $$P(\text{login}) = \frac{1}{1 + e^{-k(x - x_0)}}$$
+    - $x_0 = \text{₹40}$ (Inflection Point: exactly 50% conversion).
+    - $k = 0.1$ (Steepness factor).
+    - At ₹80, conversion reaches **98%** (diminishing returns). Below ₹40, conversion drops exponentially (e.g., ₹10 converts <5%). Converted riders transition from `INACTIVE` to `ONLINE` in PostgreSQL, boosting maximum delivery capacity.
+
+### 2. Tactical Fleet Rebalancing (Smart Roster)
+* **Motive:** Moving active riders between zones is an operational cost and risks causing secondary capacity deficits in donor zones. The platform needs an intelligent roster manager that identifies over-staffed zones (those with excess capacity headroom) and dynamically recommends moving high-skill riders to congested zones without tipping the donor zones into the red.
+* **Technical and Mathematical Mechanics:**
+  - **Endpoints:**
+    - `GET /api/v1/simulation/riders` (Roster inspection by skill tier)
+    - `POST /api/v1/simulation/draft-roster` (AI-Assisted recommendation engine)
+    - `POST /api/v1/simulation/rebalance-riders` (Roster transaction executor)
+  - **AI Recommendation Draft:** Calculates how many riders a neighboring safe zone can spare without turning red based on its active capacity parameters: `quota = math.floor(padding / single_rider_capacity)`.
+  - **Tier-Prioritized Sorting:** Automatically prioritizes higher skill levels (`EXPERT` > `STANDARD` > `TRAINEE`) to ensure maximum capacity injection with the minimum number of worker relocations.
+  - **Execution:** Updates target zones in `RiderState`. Subsequent client forecasts dynamically recalculate local capacity thresholds.
+
+### 3. Binary Search Demand Steering (Auto-Steer)
+* **Motive:** Completely locking delivery slots ruins customer experience and results in lost revenue. A gentler, revenue-optimal solution is to steer excess orders from congested slots into quieter future windows. Because demand changes non-linearly with time, traffic, and weather, the system must calculate exact capacity thresholds to avoid causing secondary bottlenecks downstream.
+* **Technical and Mathematical Mechanics:**
+  - **Endpoint:** `POST /api/v1/simulation/steer-demand`
+  - **Non-Linear XGBoost Solver:**
+    - **Step A (Identify Excess):** Runs a **Reverse Binary Search** on `Current_Load` at the peak hour to calculate the exact maximum load the model allows before capacity is breached. The excess is calculated as: `excess_orders = current_load - best_allowed_load`.
+    - **Step B (Identify Headroom):** Runs a **Forward Binary Search** on future quieter hours to compute their exact remaining headroom: `true_headroom = max(0, max_allowed_load - current_load)`.
+    - **Step C (Waterfall):** Cascade-reallocates the excess orders to future hours starting with the lowest base demand first, strictly ensuring no hour exceeds its non-linear capacity threshold.
+
 
 ---
 
@@ -149,3 +185,11 @@ npm run dev
 This project is structured perfectly for a two-tier free deployment:
 1. **Frontend:** Deployable instantly to **Vercel**. Provides ultra-fast edge delivery for the React app.
 2. **Backend:** Deployable to **Railway or Render**. Unlike Vercel's serverless limits, Railway provides a persistent container (with 500MB+ RAM), ensuring the XGBoost model stays permanently loaded in memory for millisecond response times without timing out.
+
+---
+
+## 📚 Interview Preparation Resources
+We have compiled comprehensive interview preparation files to help you master the tech stack and understand the system design of Slot Guard:
+1. **[Tech Stack Guide](file:///c:/Users/Lenovo/Desktop/delivery_slot_prediction/interview_prep_tech_stack.md)**: Deep dive into FastAPI (ASGI, Event Loop blocking, Thread Pool offloading, Dependency Injection, Lifespan context) and React (sessionStorage client caching, Vite configuration, performance optimization).
+2. **[Project & System Design Guide](file:///c:/Users/Lenovo/Desktop/delivery_slot_prediction/interview_prep_project.md)**: Detailed examination of delivery collisions, the Multi-Strategy capacity pattern, our dynamic Context-Aware Slot Booking Decay Model, Supabase PostgreSQL schema, and the MLOps pipeline (GitHub Actions + MLflow + DagsHub).
+
