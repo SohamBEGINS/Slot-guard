@@ -176,6 +176,20 @@ Predictive forecasting alone cannot prevent order blockages. To proactively reso
 
 ---
 
+## 🔄 CI/CD & MLOps Pipeline
+
+To ensure the XGBoost model remains accurate over time, Slot Guard integrates a fully automated MLOps pipeline using **GitHub Actions** and **DagsHub**.
+
+![CI/CD Pipeline](ci-cd-pipeline.png)
+
+### How the Pipeline Works:
+1. **GitHub Actions (Training Pipeline):** Triggered manually or by pushing updates, a cloud runner is spun up using `uv` for ultra-fast dependency installation. It executes the ML pipeline sequentially: preprocessing data, preparing features, training the XGBoost model, and evaluating its accuracy.
+2. **DagsHub & MLflow (Model Registry):** During evaluation, metrics are logged to the DagsHub tracking server via MLflow. The newly serialized model artifact is then uploaded directly to the DagsHub Model Registry.
+3. **Production Auto-Sync:** The production FastAPI backend is designed to pull the active model weights dynamically on boot. It targets the `@champion` alias on DagsHub. This means whenever a superior model finishes training in GitHub Actions, the backend instantly inherits the new "brain" upon its next deployment or restart without requiring code changes.
+
+---
+
+
 ## 🛠️ Local Setup Instructions
 
 ### 1. Backend (FastAPI)
@@ -203,13 +217,3 @@ npm install
 # Run the Vite development server
 npm run dev
 ```
-
----
-
-## 🚢 Deployment Strategy
-This project is structured perfectly for a two-tier free deployment:
-1. **Frontend:** Deployable instantly to **Vercel**. Provides ultra-fast edge delivery for the React app.
-2. **Backend:** Deployable to **Railway or Render**. Unlike Vercel's serverless limits, Railway provides a persistent container (with 500MB+ RAM), ensuring the XGBoost model stays permanently loaded in memory for millisecond response times without timing out.
-
----
-
