@@ -296,9 +296,11 @@ def steer_demand(req: SteerDemandRequest, db: Session = Depends(get_db)):
     # 5. Update the source slot
     from_slot.current_load = max(0, from_slot.current_load - total_steered)
 
+    target_slot_str = " and ".join([f"{m['target_hour']}:00" for m in moves]) if moves else "no slots"
+    
     db.commit()
     return {
-        "message": f"Steered {total_steered} excess orders from {req.from_hour}:00 across {len(moves)} quieter slot(s)",
+        "message": f"Steered {total_steered} excess orders from {req.from_hour}:00 to {target_slot_str}",
         "orders_reassigned": total_steered,
         "unresolved_excess": remaining_excess,  # Orders that couldn't be placed anywhere
         "from_hour": req.from_hour,

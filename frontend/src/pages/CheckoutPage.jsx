@@ -48,18 +48,26 @@ export default function CheckoutPage() {
         setEvaluatingSlotIndex(idx);
         try {
             const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-            const dateStr = forecastData[0]?.date || new Date().toISOString().split('T')[0]; // fallback
+            const cachedParamsStr = sessionStorage.getItem('cachedParams') || sessionStorage.getItem('simulationParams');
+            const simParams = cachedParamsStr ? JSON.parse(cachedParamsStr) : {};
+            const dateStr = simParams.dateTime ? simParams.dateTime.split('T')[0] : new Date().toISOString().split('T')[0];
             
             // Construct a proper datetime for the slot
             const slotTime = new Date(`${dateStr}T${slot.hour.toString().padStart(2, '0')}:00:00Z`);
+
+            // Check if admin manually forced it open
+            const overridesStr = sessionStorage.getItem('zoneOverrides');
+            const overrides = overridesStr ? JSON.parse(overridesStr) : {};
+            const slotKey = `${selectedZoneId}-${slot.hour}:00 - ${slot.hour + 1}:00`;
+            const isForceOpened = overrides[slotKey] === true;
 
             const payload = {
                 run_id: sessionStorage.getItem('active_run_id'),
                 zone_id: parseInt(selectedZoneId),
                 slot_time: slotTime.toISOString(),
-                weather: sessionStorage.getItem('simulationParams') ? JSON.parse(sessionStorage.getItem('simulationParams')).weather : "CLEAR",
-                traffic: sessionStorage.getItem('simulationParams') ? JSON.parse(sessionStorage.getItem('simulationParams')).traffic : "MEDIUM",
-                is_festival: sessionStorage.getItem('simulationParams') ? JSON.parse(sessionStorage.getItem('simulationParams')).isFestival : false
+                weather: simParams.weather || "CLEAR",
+                traffic: simParams.traffic || "MEDIUM",
+                is_festival: simParams.isFestival || false
             };
 
             const res = await fetch(`${API_BASE_URL}/api/v1/checkout/evaluate-slot`, {
@@ -70,7 +78,12 @@ export default function CheckoutPage() {
 
             if (!res.ok) throw new Error("Evaluation failed");
             
-            const result = await res.json();
+            let result = await res.json();
+            
+            if (isForceOpened) {
+                result.is_available = true;
+                result.force_opened = true;
+            }
             
             setEvaluatedSlots(prev => ({
                 ...prev,
@@ -104,6 +117,10 @@ export default function CheckoutPage() {
 
         if (!evalData.is_available) {
             return { label: 'Unavailable', price: null, class: 'opacity-50 cursor-not-allowed grayscale bg-card', border: 'border-border', icon: ShieldAlert, textClass: 'text-red-500' };
+        }
+
+        if (evalData.force_opened) {
+            return { label: 'Admin Overridden', price: 'Free', class: 'hover:border-yellow-500/50 hover:bg-yellow-500/5 cursor-pointer bg-yellow-500/10', border: 'border-yellow-500/50', icon: Zap, textClass: 'text-yellow-500', warningMsg: "Slot capacity exceeded but forced open by admin." };
         }
 
         if (evalData.surge_fee_active) {

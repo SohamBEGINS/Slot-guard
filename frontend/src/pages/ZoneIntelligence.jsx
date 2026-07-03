@@ -347,6 +347,7 @@ export default function ZoneIntelligence() {
                     <Button
                         className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-6 h-10 shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all hover:scale-105"
                         onClick={async () => {
+                            let steerNotifData = null;
                             const apiCall = async () => {
                                 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -365,7 +366,7 @@ export default function ZoneIntelligence() {
                                     const excess = peakSlot.true_excess !== undefined ? peakSlot.true_excess : (peakSlot.predicted_demand - activeZone.capacity);
                                     
                                     if (excess > 0) {
-                                        await fetch(`${API_BASE_URL}/api/v1/simulation/steer-demand`, {
+                                        const res = await fetch(`${API_BASE_URL}/api/v1/simulation/steer-demand`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({
@@ -376,11 +377,32 @@ export default function ZoneIntelligence() {
                                                 target_headrooms: headrooms
                                             })
                                         });
+                                        steerNotifData = await res.json();
                                     }
+                                } else {
+                                    steerNotifData = {
+                                        message: "Zone is within safe capacity limits. No steering required.",
+                                        orders_reassigned: 0,
+                                        already_safe: true
+                                    };
                                 }
                                 await rawFetchForecast();
                             };
+                            
                             await executeWithLoader(STEER_STEPS, apiCall);
+                            
+                            await new Promise(r => setTimeout(r, 300));
+                            
+                            if (steerNotifData) {
+                                if (steerNotifData.already_safe) {
+                                    setNotification({ type: 'success', message: steerNotifData.message });
+                                } else if (steerNotifData.orders_reassigned > 0) {
+                                    setNotification({ type: 'success', message: steerNotifData.message });
+                                } else {
+                                    setNotification({ type: 'warn', message: `No headroom available in future slots. Deploy surge to raise capacity!` });
+                                }
+                                setTimeout(() => setNotification(null), 5000);
+                            }
                         }}
                     >
                         <Users className="w-4 h-4 mr-2" />
