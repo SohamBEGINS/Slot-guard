@@ -33,3 +33,7 @@ model_building/artifacts/
 model_building/data/
 model_building/.dvc/tmp/
 model_building/.dvc/cache/
+cicd_architecture.md
+interview_prep_project.md
+interview_prep_tech_stack.md
+recent_chat.md
