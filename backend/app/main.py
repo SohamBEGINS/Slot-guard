@@ -10,7 +10,6 @@ from app.db.models import Base, Rider
 from fastapi.middleware.cors import CORSMiddleware
 import uuid
 import random
-from app.core.dataset_manager import DatasetManager
 from dotenv import load_dotenv
 
 def seed_asymmetric_riders():
@@ -64,9 +63,9 @@ async def lifespan(app: FastAPI):
     # 2. Seed the permanent workforce
     seed_asymmetric_riders()
 
-    # 3. Load dataset from DagsHub S3 into memory
-    dataset_manager = DatasetManager()
-    dataset_manager.load_dataset()
+    # # 3. Load dataset from DagsHub S3 into memory (ignore)
+    # dataset_manager = DatasetManager()
+    # dataset_manager.load_dataset()
 
     # 4. Boot up the XGBoost Singleton and load model into RAM
     print("Initializing ML Manager...")
