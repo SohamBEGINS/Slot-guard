@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap } from "lucide-react";
 
-import TerminalLoader from '../components/TerminalLoader';
+
 import ZoneSummaryCards  from '../components/ZoneIntelligence/ZoneSummaryCards';
 import AdminActionPanel  from '../components/ZoneIntelligence/AdminActionPanel';
 import ZoneDemandChart   from '../components/ZoneIntelligence/ZoneDemandChart';
@@ -252,7 +252,17 @@ export default function ZoneIntelligence() {
     // ── Guard: loading / no data ──────────────────────────────────────────────
     if (!forecastData || forecastData.length === 0) {
         if (loading) {
-            return <TerminalLoader activeIndex={loadingStepIndex} steps={loadingSteps} />;
+            return (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+                    <div className="flex flex-col items-center gap-5">
+                        <div className="relative w-14 h-14">
+                            <div className="absolute inset-0 rounded-full border-2 border-border/20"/>
+                            <div className="absolute inset-0 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"/>
+                        </div>
+                        <p className="text-xs font-bold tracking-[0.3em] uppercase text-muted-foreground animate-pulse">Loading</p>
+                    </div>
+                </div>
+            );
         }
         return (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
@@ -276,7 +286,17 @@ export default function ZoneIntelligence() {
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div className="p-6 flex flex-col min-h-[calc(100vh-2rem)] relative">
-            {loading && <TerminalLoader activeIndex={loadingStepIndex} steps={loadingSteps} />}
+            {loading && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+                    <div className="flex flex-col items-center gap-5">
+                        <div className="relative w-14 h-14">
+                            <div className="absolute inset-0 rounded-full border-2 border-border/20"/>
+                            <div className="absolute inset-0 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"/>
+                        </div>
+                        <p className="text-xs font-bold tracking-[0.3em] uppercase text-muted-foreground animate-pulse">Loading</p>
+                    </div>
+                </div>
+            )}
 
             {/* Toast notification */}
             {notification && (

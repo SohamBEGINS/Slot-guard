@@ -89,12 +89,13 @@ export default function UrbanMap() {
             color = 'bg-red-500/20 border-red-500/50 text-red-400';
             hoverColor = 'hover:bg-red-500/30 hover:border-red-400';
             icon = <AlertOctagon className="w-8 h-8 text-red-500" />;
-        } else if (ratio >= 0.8) {
+        } else if (ratio > 0.8) {
             status = 'WARNING';
             color = 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400';
             hoverColor = 'hover:bg-yellow-500/30 hover:border-yellow-400';
             icon = <Zap className="w-8 h-8 text-yellow-500" />;
         }
+
 
         return { peakDemand, ratio, status, color, hoverColor, icon };
     };
@@ -196,8 +197,13 @@ export default function UrbanMap() {
 
             if (!res.ok) throw new Error("Rebalance failed");
 
-            // Refetch to see the new capacity impacts
+            // Refetch to see the new capacity impacts — this also writes fresh data to cachedForecast
             await fetchForecast();
+
+            // Invalidate the ZoneIntelligence param-cache so it is forced to re-run
+            // the full /demand-forecast (with new rider counts) instead of serving
+            // stale headroom / capacity data from before the rebalance.
+            sessionStorage.removeItem('cachedParams');
 
             // Set success notification
             setNotification({
@@ -218,6 +224,7 @@ export default function UrbanMap() {
             setRebalancing(false);
         }
     };
+
 
     if (loading || forecastData.length === 0) {
         return (
@@ -251,42 +258,201 @@ export default function UrbanMap() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
 
-                {/* LEFT: THE CITY GRID */}
+                {/* LEFT: SVG CITY MAP */}
                 <div className="lg:col-span-2 flex flex-col">
-                    <div className="grid grid-cols-4 gap-4 flex-1 bg-card/20 p-6 rounded-3xl border border-border/30">
-                        {forecastData.map(zone => {
-                            const { peakDemand, status, color, hoverColor, icon } = getZoneMetrics(zone);
-                            const isSelected = selectedZone?.zone_id === zone.zone_id;
+                    <div className="flex-1 rounded-3xl border border-border/30 overflow-hidden relative" style={{background: '#0d1520', minHeight: '420px'}}>
 
-                            return (
-                                <div
-                                    key={zone.zone_id}
-                                    onClick={() => handleZoneSelect(zone)}
-                                    className={`relative flex flex-col items-center justify-center p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 backdrop-blur-sm
-                                        ${color} ${hoverColor} ${isSelected ? 'ring-4 ring-primary ring-offset-4 ring-offset-background scale-105 z-10' : ''}
-                                    `}
-                                >
-                                    <div className="absolute top-4 left-4 font-black text-xl opacity-50">#{zone.zone_id}</div>
-                                    <div className="mb-4">{icon}</div>
-                                    <h3 className="text-xl font-bold mb-1">{zone.zone_name}</h3>
-                                    <p className="text-sm font-semibold tracking-wider uppercase opacity-80 mb-4">{status}</p>
-
-                                    <div className="w-full bg-black/40 rounded-xl p-3 flex justify-between items-center text-sm mt-auto">
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-muted-foreground text-xs uppercase font-bold">Riders</span>
-                                            <span className="font-black text-white">{zone.active_riders}</span>
-                                        </div>
-                                        <div className="w-px h-8 bg-white/20 mx-2"></div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-muted-foreground text-xs uppercase font-bold">Peak</span>
-                                            <span className="font-black text-white">{peakDemand}</span>
-                                        </div>
-                                    </div>
+                        {/* Map legend strip */}
+                        <div className="absolute top-3 left-4 z-10 flex items-center gap-3">
+                            {[['SAFE','#22c55e'],['WARNING','#eab308'],['CRITICAL','#ef4444']].map(([label, color]) => (
+                                <div key={label} className="flex items-center gap-1.5">
+                                    <div className="w-2.5 h-2.5 rounded-sm" style={{background: color, opacity: 0.8}} />
+                                    <span className="text-[10px] font-bold tracking-widest uppercase" style={{color: color, opacity: 0.7}}>{label}</span>
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
+
+                        <svg
+                            viewBox="0 0 700 400"
+                            className="w-full h-full"
+                            style={{display:'block', background: '#0d1520'}}
+                        >
+                            <defs>
+                                {/* Subtle map grid texture */}
+                                <pattern id="mapGrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+                                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a2638" strokeWidth="0.5"/>
+                                </pattern>
+                                {/* Glow filter for selected zone */}
+                                <filter id="zoneGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="4" result="blur"/>
+                                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                </filter>
+                            </defs>
+
+                            {/* Map background grid */}
+                            <rect width="700" height="400" fill="url(#mapGrid)"/>
+
+                            {/* Road network — 8px wide for authentic map feel */}
+                            {/* Horizontal arterials */}
+                            <line x1="0" y1="162" x2="700" y2="162" stroke="#162030" strokeWidth="10"/>
+                            <line x1="0" y1="322" x2="700" y2="322" stroke="#162030" strokeWidth="10"/>
+                            {/* Vertical roads in Row 1 */}
+                            <line x1="134" y1="0"   x2="134" y2="162" stroke="#162030" strokeWidth="10"/>
+                            <line x1="444" y1="0"   x2="444" y2="162" stroke="#162030" strokeWidth="10"/>
+                            {/* Vertical roads in Row 2 */}
+                            <line x1="176" y1="162" x2="176" y2="322" stroke="#162030" strokeWidth="10"/>
+                            <line x1="384" y1="162" x2="384" y2="322" stroke="#162030" strokeWidth="10"/>
+                            {/* Vertical road in Row 3 */}
+                            <line x1="364" y1="322" x2="364" y2="420" stroke="#162030" strokeWidth="10"/>
+
+                            {/* Road centre-line dashes */}
+                            <line x1="0" y1="162" x2="700" y2="162" stroke="#1e3048" strokeWidth="1" strokeDasharray="14 10"/>
+                            <line x1="0" y1="322" x2="700" y2="322" stroke="#1e3048" strokeWidth="1" strokeDasharray="14 10"/>
+                            <line x1="134" y1="0"   x2="134" y2="162" stroke="#1e3048" strokeWidth="1" strokeDasharray="14 10"/>
+                            <line x1="444" y1="0"   x2="444" y2="162" stroke="#1e3048" strokeWidth="1" strokeDasharray="14 10"/>
+                            <line x1="176" y1="162" x2="176" y2="322" stroke="#1e3048" strokeWidth="1" strokeDasharray="14 10"/>
+                            <line x1="384" y1="162" x2="384" y2="322" stroke="#1e3048" strokeWidth="1" strokeDasharray="14 10"/>
+                            <line x1="364" y1="322" x2="364" y2="420" stroke="#1e3048" strokeWidth="1" strokeDasharray="14 10"/>
+
+                            {/* Road labels */}
+                            <text x="67" y="158" fill="#1e3a52" fontSize="7" textAnchor="middle" fontFamily="sans-serif" letterSpacing="1">NH-4</text>
+                            <text x="310" y="158" fill="#1e3a52" fontSize="7" textAnchor="middle" fontFamily="sans-serif" letterSpacing="1">RING ROAD</text>
+                            <text x="580" y="158" fill="#1e3a52" fontSize="7" textAnchor="middle" fontFamily="sans-serif" letterSpacing="1">SH-7</text>
+                            <text x="280" y="318" fill="#1e3a52" fontSize="7" textAnchor="middle" fontFamily="sans-serif" letterSpacing="1">OUTER RING</text>
+                            <text x="545" y="318" fill="#1e3a52" fontSize="7" textAnchor="middle" fontFamily="sans-serif" letterSpacing="1">MG ROAD</text>
+
+                            {/* ── ZONE LAYOUT (visually balanced city-district design) ──
+                                Sizes suggest capacity rank — Zone 6 largest (55), Zone 1
+                                smallest corner (25) — but shaped for visual harmony, not maths.
+                                Row 1 (h=157): zones 1(small), 2(large), 3(medium)
+                                Row 2 (h=155): zones 4(small), 5(medium), 6(large)
+                                Row 3 (h=93):  zones 7(wider), 8(slightly narrower)
+                            */}
+                            {(() => {
+                                const ZONE_RECTS = {
+                                    1: { x: 0,   y: 0,   w: 129, h: 157 },
+                                    2: { x: 139, y: 0,   w: 300, h: 157 },
+                                    3: { x: 449, y: 0,   w: 251, h: 157 },
+                                    4: { x: 0,   y: 167, w: 171, h: 150 },
+                                    5: { x: 181, y: 167, w: 198, h: 150 },
+                                    6: { x: 389, y: 167, w: 311, h: 150 },
+                                    7: { x: 0,   y: 327, w: 359, h: 93  },
+                                    8: { x: 369, y: 327, w: 331, h: 93  },
+                                };
+                                const STATUS_SVG = {
+                                    SAFE:     { fill: '#22c55e', stroke: '#22c55e', text: '#86efac', dimText: '#166534' },
+                                    WARNING:  { fill: '#eab308', stroke: '#eab308', text: '#fde047', dimText: '#713f12' },
+                                    CRITICAL: { fill: '#ef4444', stroke: '#ef4444', text: '#fca5a5', dimText: '#7f1d1d' },
+                                };
+
+                                return forecastData.map(zone => {
+                                    const rect   = ZONE_RECTS[zone.zone_id];
+                                    const metrics = getZoneMetrics(zone);
+                                    const isSelected = selectedZone?.zone_id === zone.zone_id;
+                                    const isSafe = metrics.status === 'SAFE';
+                                    const C = STATUS_SVG[metrics.status] || STATUS_SVG.SAFE;
+                                    const cx = rect.x + rect.w / 2;
+                                    const cy = rect.y + rect.h / 2;
+
+                                    return (
+                                        <g
+                                            key={zone.zone_id}
+                                            onClick={() => handleZoneSelect(zone)}
+                                            style={{ cursor: isSafe ? 'not-allowed' : 'pointer' }}
+                                            filter={isSelected ? 'url(#zoneGlow)' : undefined}
+                                        >
+                                            {/* Zone background fill */}
+                                            <rect
+                                                x={rect.x + 1} y={rect.y + 1}
+                                                width={rect.w - 2} height={rect.h - 2}
+                                                rx="4"
+                                                fill={C.fill}
+                                                fillOpacity={isSelected ? 0.22 : isSafe ? 0.07 : 0.13}
+                                                stroke={C.stroke}
+                                                strokeWidth={isSelected ? 2.5 : 1.2}
+                                                strokeOpacity={isSelected ? 1 : isSafe ? 0.3 : 0.55}
+                                            />
+
+                                            {/* Selected pulsing outer ring */}
+                                            {isSelected && (
+                                                <rect
+                                                    x={rect.x + 1} y={rect.y + 1}
+                                                    width={rect.w - 2} height={rect.h - 2}
+                                                    rx="4"
+                                                    fill="none"
+                                                    stroke={C.stroke}
+                                                    strokeWidth="5"
+                                                    strokeOpacity="0.25"
+                                                />
+                                            )}
+
+                                            {/* Zone number badge (top-left) */}
+                                            <text
+                                                x={rect.x + 10} y={rect.y + 18}
+                                                fill={C.text} fontSize="11"
+                                                fontWeight="800" fontFamily="monospace"
+                                                fillOpacity={isSafe ? 0.4 : 0.9}
+                                            >#{zone.zone_id}</text>
+
+                                            {/* Zone name (center) */}
+                                            <text
+                                                x={cx} y={cy - (rect.h > 100 ? 10 : 4)}
+                                                fill="white" fontSize={rect.w > 200 ? 14 : 12}
+                                                fontWeight="700" textAnchor="middle"
+                                                fontFamily="sans-serif"
+                                                fillOpacity={isSafe ? 0.35 : 0.85}
+                                            >{zone.zone_name}</text>
+
+                                            {/* Status label (center, below name) */}
+                                            {rect.h > 80 && (
+                                                <text
+                                                    x={cx} y={cy + (rect.h > 100 ? 8 : 10)}
+                                                    fill={C.text} fontSize="9"
+                                                    fontWeight="700" textAnchor="middle"
+                                                    fontFamily="sans-serif" letterSpacing="2"
+                                                    fillOpacity={isSafe ? 0.3 : 0.75}
+                                                >{metrics.status}</text>
+                                            )}
+
+                                            {/* SAFE lock icon hint */}
+                                            {isSafe && (
+                                                <text x={cx} y={cy + 22}
+                                                    fill={C.text} fontSize="8"
+                                                    textAnchor="middle" fontFamily="sans-serif"
+                                                    fillOpacity="0.3">NO ACTION NEEDED</text>
+                                            )}
+                                        </g>
+                                    );
+                                });
+                            })()}
+
+                            {/* Compass rose */}
+                            <g transform="translate(672, 32)">
+                                <circle cx="0" cy="0" r="18" fill="#0d1520" stroke="#1e3048" strokeWidth="1.5"/>
+                                <polygon points="0,-12 3,-4 -3,-4" fill="#ef4444"/>
+                                <polygon points="0,12  3,4  -3,4"  fill="#334155"/>
+                                <text x="0" y="-14" fill="#94a3b8" fontSize="8" textAnchor="middle" fontFamily="sans-serif" fontWeight="700">N</text>
+                            </g>
+
+                            {/* Scale bar */}
+                            <g transform="translate(14, 388)">
+                                <rect x="0" y="-4" width="50" height="4" fill="#1e3048" rx="1"/>
+                                <rect x="0" y="-4" width="25" height="4" fill="#334155" rx="1"/>
+                                <text x="0"  y="-7" fill="#475569" fontSize="7" fontFamily="sans-serif">0</text>
+                                <text x="45" y="-7" fill="#475569" fontSize="7" fontFamily="sans-serif">2km</text>
+                            </g>
+
+                            {/* Click-hint text (only when nothing selected) */}
+                            {!selectedZone && (
+                                <text x="350" y="396" fill="#334155" fontSize="9"
+                                    textAnchor="middle" fontFamily="sans-serif" letterSpacing="1">
+                                    TAP A CONGESTED ZONE TO MANAGE FLEET
+                                </text>
+                            )}
+                        </svg>
                     </div>
                 </div>
+
 
                 {/* RIGHT: REBALANCE COMMAND CENTER */}
                 <div className="lg:col-span-1">
@@ -316,19 +482,59 @@ export default function UrbanMap() {
                                     </div>
 
                                     {draftRoster === null ? (
-                                        <div className="flex-1 flex flex-col items-center justify-center">
+                                        <div className="flex-1 flex flex-col justify-center gap-6">
+                                            {/* AI Command Panel */}
+                                            <div className="relative rounded-2xl border border-primary/20 bg-gradient-to-b from-primary/5 to-transparent p-6 overflow-hidden">
+                                                {/* Subtle grid background */}
+                                                <div className="absolute inset-0 opacity-5" style={{backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 20px, currentColor 20px, currentColor 21px), repeating-linear-gradient(90deg, transparent, transparent 20px, currentColor 20px, currentColor 21px)'}} />
+
+                                                {/* Icon + title */}
+                                                <div className="relative flex flex-col items-center text-center gap-4">
+                                                    <div className="relative">
+                                                        <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl animate-pulse" />
+                                                        <div className="relative w-16 h-16 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+                                                            <Zap className="w-8 h-8 text-primary" />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-base font-black text-white tracking-wide">System Roster Engine</p>
+                                                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-[200px] mx-auto">
+                                                            Analyses safe zones, skill tiers &amp; capacity padding to draft an optimal redeployment roster.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Zone stat strip */}
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="rounded-xl bg-black/30 border border-border/20 p-3 text-center">
+                                                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Current Riders</p>
+                                                    <p className="text-2xl font-black text-white">{selectedZone.active_riders}</p>
+                                                </div>
+                                                <div className="rounded-xl bg-black/30 border border-border/20 p-3 text-center">
+                                                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Peak Demand</p>
+                                                    <p className="text-2xl font-black text-red-400">
+                                                        {Math.max(...selectedZone.hours.map(h => h.predicted_demand))}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* CTA Button */}
                                             <Button
                                                 onClick={() => {
                                                     const extraCap = parseInt(sessionStorage.getItem('current_extra_cap') || '0');
                                                     fetchDraftRoster(selectedZone, extraCap);
                                                 }}
                                                 disabled={isFetchingRoster}
-                                                className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold h-12 px-6 rounded-xl shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+                                                className="w-full h-14 text-base font-black tracking-widest uppercase rounded-xl bg-primary hover:bg-primary/90 shadow-[0_0_25px_rgba(var(--primary-rgb,239,68,68),0.35)] transition-all hover:scale-[1.02] hover:shadow-[0_0_35px_rgba(var(--primary-rgb,239,68,68),0.5)] disabled:opacity-60 disabled:scale-100"
                                             >
-                                                {isFetchingRoster ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Zap className="w-5 h-5 mr-2" />}
-                                                Get System Recommendation
+                                                {isFetchingRoster
+                                                    ? <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Analysing Zones...</>
+                                                    : <><Zap className="w-5 h-5 mr-2" /> Get System Recommendation</>
+                                                }
                                             </Button>
                                         </div>
+
                                     ) : draftRoster.length === 0 ? (
                                         <div className="flex-1 flex items-center justify-center text-muted-foreground p-6 text-center border-2 border-dashed border-border/30 rounded-xl mb-6 bg-black/20">
                                             <div>
